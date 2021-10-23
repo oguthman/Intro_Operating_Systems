@@ -1,7 +1,7 @@
 /*!
 ******************************************************************************
 \file encrypter.h
-\date 24 October 2021
+\date 23 October 2021
 \author Shahar Dorit Morag & Ofir Guthman
 \brief
  Creating an encription for the incoming data.

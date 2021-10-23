@@ -1,6 +1,7 @@
+#define _CRT_SECURE_NO_WARNINGS
 /*!
 ******************************************************************************
-\file encrypter.c
+\file main.c
 \date 23 October 2021
 \author Shahr Dorit Morag & Ofir Guthman
 \brief
@@ -16,13 +17,17 @@ ALL RIGHTS RESERVED
 /************************************
 *      include                      *
 ************************************/
-#include <string.h>
 #include <stdio.h>
 #include <assert.h>
+#include <stdint.h>
+#include <stdlib.h>
+#include <string.h>
+//
 
 /************************************
 *      definitions                 *
 ************************************/
+#define NUMBER_OF_BYTES		16
 
 /************************************
 *       types                       *
@@ -31,39 +36,24 @@ ALL RIGHTS RESERVED
 /************************************
 *      variables                    *
 ************************************/
+static FILE* gMessageFile = NULL;
+static FILE* gKeyFile = NULL;
+
 
 /************************************
 *      static functions             *
 ************************************/
-static char* gEncryptionKey;
+
 
 /************************************
 *       API implementation          *
 ************************************/
-void Encrypter_Init(char* key)
+int main(int argc, char* argv[])
 {
-	// verify key is not null
-	assert(key != NULL);
-	//
-	gEncryptionKey = key;
-}
+	printf("Father project\n");
 
-void Encrypter_RunEncryption(char* text, char* encryptedText)
-{
-	// verify ptrs are not null
-	assert(text != NULL);
-	assert(encryptedText != NULL);
-	// verify text and key on the same length
-	assert(strlen(text) == strlen(gEncryptionKey));
-	// 
-	// XORing bitwise
-	for (int i = 0; i < strlen(gEncryptionKey); i++)
-	{
-		encryptedText[i] = text[i] ^ gEncryptionKey[i];
-	}
-	encryptedText[strlen(gEncryptionKey)] = '\0';
+	return 0;
 }
-
 
 /************************************
 * static implementation             *
