@@ -36,9 +36,9 @@ ALL RIGHTS RESERVED
 /************************************
 *      variables                    *
 ************************************/
-static FILE *gMessageFile = NULL;
-static FILE *gKeyFile = NULL;
-static uint32_t gOffset = 0;
+static FILE *pg_message_file = NULL;
+static FILE *pg_key_file = NULL;
+static uint32_t g_offset = 0;
 
 /************************************
 *      static functions             *
@@ -47,7 +47,7 @@ static void parse_arguments(int argc, char *argv[]);
 static void extract_key(char *key);
 static void extract_text(char *text);
 //
-static void run_encryption(char *text, char *key, char *encryptedText);
+static void run_encryption(char *text, char *key, char *text_encrypted);
 static void write_encryption_to_file(char *text);
 static void close_files(void);
 
@@ -62,15 +62,15 @@ int main(int argc, char *argv[])
 	extract_key(key);
 	
 	char text[NUMBER_OF_BYTES + 1];
-	char encryptedText[NUMBER_OF_BYTES + 1];
+	char text_encrypted[NUMBER_OF_BYTES + 1];
 	// extract the text for the encrypter
 	extract_text(text);
 	// run encryption
-	run_encryption(text, key, encryptedText);
-	write_encryption_to_file(encryptedText);
+	run_encryption(text, key, text_encrypted);
+	write_encryption_to_file(text_encrypted);
 
 	printf("original text - %s\n", text);
-	printf("encrypted text - %s\n", encryptedText);
+	printf("encrypted text - %s\n", text_encrypted);
 
 	close_files();
 	return 0;
@@ -89,20 +89,20 @@ static void parse_arguments(int argc, char *argv[])
 	}
 	
 	// open files
-	if ((gMessageFile = fopen(argv[1], "r")) == NULL || (gKeyFile = fopen(argv[3], "r")) == NULL)
+	if ((pg_message_file = fopen(argv[1], "r")) == NULL || (pg_key_file = fopen(argv[3], "r")) == NULL)
 	{
 		printf("Error: failed opening files. \n");
 		exit(1);
 	}
 	
 	char *ptr;
-	gOffset = strtol(argv[2], &ptr, 10);
+	g_offset = strtol(argv[2], &ptr, 10);
 }
 
-static void extract_key(char *key)
+static void extract_key(char key)
 {
 	// read the key from the file.
-	if (!fscanf(gKeyFile, "%s", key))
+	if (!fscanf(pg_key_file, "%s", key))
 	{
 		printf("Error: couldn't extract key from file.  \n");
 		exit(1);
@@ -112,8 +112,8 @@ static void extract_key(char *key)
 static void extract_text(char *text)
 {
 	// set offset location to begin reading
-	fseek(gMessageFile, gOffset, SEEK_SET);
-	fgets(text, NUMBER_OF_BYTES + 1, gMessageFile);
+	fseek(pg_message_file, g_offset, SEEK_SET);
+	fgets(text, NUMBER_OF_BYTES + 1, pg_message_file);
 	if (strlen(text) != NUMBER_OF_BYTES)
 	{
 		printf("Error: couldn't find sub string in length of %d", NUMBER_OF_BYTES);
@@ -121,32 +121,32 @@ static void extract_text(char *text)
 	}
 }
 
-void run_encryption(char *text, char *key, char *encryptedText)
+void run_encryption(char *text, char *key, char *text_encrypted)
 {
 	// XORing bitwise
 	for (int i = 0; i < strlen(key); i++)
 	{
-		encryptedText[i] = text[i] ^ key[i];
+		text_encrypted[i] = text[i] ^ key[i];
 	}
-	encryptedText[strlen(key)] = '\0';
+	text_encrypted[strlen(key)] = '\0';
 }
 
-static void write_encryption_to_file(char *encryptedText)
+static void write_encryption_to_file(char *text_encrypted)
 {
-	FILE *result_file = NULL;
-	result_file = (gOffset == 0) ? fopen("Encrypted_message.txt", "w") : fopen("Encrypted_message.txt", "a");
-	if (result_file == NULL)
+	FILE *p_result_file = NULL;
+	p_result_file = (g_offset == 0) ? fopen("Encrypted_message.txt", "w") : fopen("Encrypted_message.txt", "a");
+	if (p_result_file == NULL)
 	{
 		printf("Error: failed opening Encrypted_message.txt. \n");
 		exit(1);
 	}
 
-	fprintf(result_file, "%s", encryptedText);
-	fclose(result_file);
+	fprintf(p_result_file, "%s", text_encrypted);
+	fclose(p_result_file);
 }
 
 static void close_files(void)
 {
-	fclose(gMessageFile);
-	fclose(gKeyFile);
+	fclose(pg_message_file);
+	fclose(pg_key_file);
 }

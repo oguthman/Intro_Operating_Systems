@@ -38,19 +38,19 @@ ALL RIGHTS RESERVED
 /************************************
 *      variables                    *
 ************************************/
-static FILE *gMessageFile = NULL;
-static FILE *gKeyFile = NULL;
+static FILE *pg_message_file = NULL;
+static FILE *pg_key_file = NULL;
 
-static char* gMessageFileName = NULL;
-static char* gKeyFileName = NULL;
+static char* g_message_file_name = NULL;
+static char* g_key_file_name = NULL;
 
 /************************************
 *      static functions             *
 ************************************/
-static void parse_arguments(int argc, char* argv[]);
-static uint32_t get_file_length(FILE *file);
+static void parse_arguments(int argc, char *argv[]);
+static uint32_t get_file_length(FILE *p_file);
 static void run_processes();
-static void call_Son();
+static void call_son();
 
 
 
@@ -84,39 +84,45 @@ static void parse_arguments(int argc, char* argv[])
 	}
 	
 	// open message file
-	if ((gMessageFile = fopen(argv[1], "r")) == NULL)
+	if ((pg_message_file = fopen(argv[1], "r")) == NULL)
 	{
 		printf("Error: failed opening file. \n");
 		exit(1);
 	}
 
-	gMessageFileName = argv[1];
-	gKeyFileName = argv[2];
+	g_message_file_name = argv[1];
+	g_key_file_name = argv[2];
 }
 
-static uint32_t get_file_length(FILE* file)
+static uint32_t get_file_length(FILE *p_file)
 {
-	fseek(file, 0, SEEK_END);
-	return ftell(file);
+	fseek(p_file, 0, SEEK_END);
+	return ftell(p_file);
 }
 
 static void run_processes()
 {
-	uint32_t size = get_file_length(gMessageFile);
-	fclose(gMessageFile);
+	uint32_t size = get_file_length(pg_message_file);
+	fclose(pg_message_file);
 	
 	for (uint32_t offset = 0; offset < size; offset += 16)
 	{
 		PROCESS_INFORMATION procinfo;
-		call_Son(&procinfo, offset);
+		call_son(&procinfo, offset);
+
+		// Wait until child process exits.
+		WaitForSingleObject(pi.hProcess, INFINITE);
+
+		// Close process and thread handles. 
+		CloseHandle(pi.hProcess);
 
 	}
 }
 
-static void call_Son(PROCESS_INFORMATION *procinfo, uint32_t offset)
+static void call_son(PROCESS_INFORMATION *p_procinfo, uint32_t offset)
 {
 	// get cmd str lenght
-	int length = snprintf(NULL, 0, "Son.exe %s %d %s", gMessageFileName, offset, gKeyFileName);
+	int length = snprintf(NULL, 0, "Son.exe %s %d %s", g_message_file_name, offset, g_key_file_name);
 	char *cmd = malloc(length + 1);
 	if (NULL == cmd)
 	{
@@ -125,7 +131,7 @@ static void call_Son(PROCESS_INFORMATION *procinfo, uint32_t offset)
 	}
 
 	// write string to cmd buffer
-	snprintf(cmd, length + 1, "Son.exe %s %d %s", gMessageFileName, offset, gKeyFileName);
+	snprintf(cmd, length + 1, "Son.exe %s %d %s", g_message_file_name, offset, g_key_file_name);
 	
 	// create new process
 	STARTUPINFO satartinfo = { sizeof(STARTUPINFO), NULL, 0 };
@@ -140,39 +146,21 @@ static void call_Son(PROCESS_INFORMATION *procinfo, uint32_t offset)
 		NULL,           // Use parent's environment block
 		NULL,           // Use parent's starting directory 
 		&satartinfo,     // Pointer to STARTUPINFO structure
-		procinfo);     // Pointer to PROCESS_INFORMATION structure
-
-
+		p_procinfo);     // Pointer to PROCESS_INFORMATION structure
 
 	// free alocation
 	free(cmd);
+
+	// check if process created succesfully
+	if (!success)
+	{
+		printf("Error: process creation failure \n");
+		exit(1);
+	}
 }
-
-if (!CreateProcess(NULL,   // No module name (use command line)
-    command,        // Command line
-    NULL,           // Process handle not inheritable
-    NULL,           // Thread handle not inheritable
-    FALSE,          // Set handle inheritance to FALSE
-    0,              // No creation flags
-    NULL,           // Use parent's environment block
-    NULL,           // Use parent's starting directory 
-    &atartinfo,            // Pointer to STARTUPINFO structure
-    &procinfo)           // Pointer to PROCESS_INFORMATION structure
-    )
-{
-    printf("CreateProcess failed (%d).\n", GetLastError());
-    return;
-}
-
-// Wait until child process exits.
-WaitForSingleObject(pi.hProcess, INFINITE);
-
-// Close process and thread handles. 
-CloseHandle(pi.hProcess);
-CloseHandle(pi.hThread);
 
 static void close_files(void)
 {
-	fclose(gMessageFile);
-	fclose(gKeyFile);
+	fclose(pg_message_file);
+	fclose(pg_key_file);
 }
