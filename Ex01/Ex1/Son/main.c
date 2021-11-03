@@ -21,7 +21,6 @@ ALL RIGHTS RESERVED
 #include <stdint.h>
 #include <stdlib.h>
 #include <string.h>
-//
 
 
 /************************************
@@ -69,8 +68,8 @@ int main(int argc, char *argv[])
 	run_encryption(text, key, text_encrypted);
 	write_encryption_to_file(text_encrypted);
 
-	printf("original text - %s\n", text);
-	printf("encrypted text - %s\n", text_encrypted);
+	printf("Son: Original text - %s\n", text);
+	printf("Son: Encrypted text - %s\n", text_encrypted);
 
 	close_files();
 	return 0;
@@ -95,6 +94,10 @@ static void parse_arguments(int argc, char *argv[])
 		exit(1);
 	}
 	
+	printf("exe - %s\n", argv[0]);
+	printf("text - %s\n", argv[1]);
+	printf("key - %s\n", argv[3]);
+
 	char *ptr;
 	// str to uint
 	g_offset = strtol(argv[2], &ptr, 10);
@@ -135,7 +138,8 @@ void run_encryption(char *text, char *key, char *text_encrypted)
 static void write_encryption_to_file(char *text_encrypted)
 {
 	FILE *p_result_file = NULL;
-	p_result_file = (g_offset == 0) ? fopen("Encrypted_message.txt", "w") : fopen("Encrypted_message.txt", "a");
+	char path[] = "Encrypted_message.txt";
+	p_result_file = (g_offset == 0) ? fopen(path, "w") : fopen(path, "a");
 	if (p_result_file == NULL)
 	{
 		printf("Error: failed opening Encrypted_message.txt. \n");
