@@ -30,6 +30,7 @@ ALL RIGHTS RESERVED
 *      definitions                 *
 ************************************/
 #define NUMBER_OF_BYTES		16
+#define WAIT_FOR_PROCESS	5000	// 5 seconds
 
 /************************************
 *       types                       *
@@ -62,9 +63,9 @@ static void close_files(void);
 ************************************/
 int main(int argc, char *argv[])
 {
-	parse_arguments(argc, argv[]);
+	parse_arguments(argc, argv);
 	run_processes();
-		
+	printf("finished!");
 	
 	
 	close_files();
@@ -104,6 +105,8 @@ static void run_processes()
 {
 	uint32_t size = get_file_length(pg_message_file);
 	fclose(pg_message_file);
+
+	printf("The size of the file is %d, so we call son process %d times", size, size / 16);
 	
 	for (uint32_t offset = 0; offset < size; offset += 16)
 	{
@@ -111,30 +114,32 @@ static void run_processes()
 		call_son(&procinfo, offset);
 
 		// Wait until child process exits.
-		WaitForSingleObject(pi.hProcess, INFINITE);
+		WaitForSingleObject(procinfo.hProcess, WAIT_FOR_PROCESS);
 
 		// Close process and thread handles. 
-		CloseHandle(pi.hProcess);
-
+		CloseHandle(procinfo.hThread);
+		CloseHandle(procinfo.hProcess);
 	}
 }
 
 static void call_son(PROCESS_INFORMATION *p_procinfo, uint32_t offset)
 {
 	// get cmd str lenght
-	int length = snprintf(NULL, 0, "Son.exe %s %d %s", g_message_file_name, offset, g_key_file_name);
-	char *cmd = malloc(length + 1);
-	if (NULL == cmd)
-	{
-		printf("Error: failed allocating command \n");
-		exit(1);
-	}
+	//int length = snprintf(NULL, 0, "/.Son.exe \"%s\" %d \"%s\"", g_message_file_name, offset, g_key_file_name);
+	//char *cmd = malloc(length + 1);
+	//if (NULL == cmd)
+	//{
+	//	printf("Error: failed allocating command \n");
+	//	exit(1);
+	//}
 
-	// write string to cmd buffer
-	snprintf(cmd, length + 1, "Son.exe %s %d %s", g_message_file_name, offset, g_key_file_name);
-	
+	//// write string to cmd buffer
+	//snprintf(cmd, length + 1, "/.Son.exe \"%s\" %d \"%s\"", g_message_file_name, offset, g_key_file_name);
+	//
+	LPWSTR cmd = "notepad.exe ../log.txt";
+
 	// create new process
-	STARTUPINFO satartinfo = { sizeof(STARTUPINFO), NULL, 0 };
+	STARTUPINFO startinfo = { sizeof(STARTUPINFO), NULL, 0 };
 
 	bool success = CreateProcess(
 		NULL,			// No module name (use command line)
@@ -145,10 +150,10 @@ static void call_son(PROCESS_INFORMATION *p_procinfo, uint32_t offset)
 		0,              // No creation flags
 		NULL,           // Use parent's environment block
 		NULL,           // Use parent's starting directory 
-		&satartinfo,     // Pointer to STARTUPINFO structure
-		p_procinfo);     // Pointer to PROCESS_INFORMATION structure
+		&startinfo,     // Pointer to STARTUPINFO structure
+		p_procinfo);    // Pointer to PROCESS_INFORMATION structure
 
-	// free alocation
+	// free allocation
 	free(cmd);
 
 	// check if process created succesfully

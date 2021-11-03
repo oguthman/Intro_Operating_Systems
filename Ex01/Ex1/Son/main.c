@@ -96,10 +96,11 @@ static void parse_arguments(int argc, char *argv[])
 	}
 	
 	char *ptr;
+	// str to uint
 	g_offset = strtol(argv[2], &ptr, 10);
 }
 
-static void extract_key(char key)
+static void extract_key(char *key)
 {
 	// read the key from the file.
 	if (!fscanf(pg_key_file, "%s", key))
@@ -141,6 +142,7 @@ static void write_encryption_to_file(char *text_encrypted)
 		exit(1);
 	}
 
+	fseek(p_result_file, g_offset, SEEK_SET);
 	fprintf(p_result_file, "%s", text_encrypted);
 	fclose(p_result_file);
 }
