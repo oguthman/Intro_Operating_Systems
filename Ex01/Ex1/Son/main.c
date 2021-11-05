@@ -2,12 +2,9 @@
 /*!
 ******************************************************************************
 \file main.c
-\date 23 October 2021
-\author Shahar Dorit Morag & Ofir Guthman
-\brief
-
-\details
-
+\date 30 October 2021
+\authors Shahar Dorit Morag 315337238 & Ofir Guthman 205577018
+\project #1
 \par Copyright
 (c) Copyright 2021 Ofir & Shahar
 \par
@@ -45,7 +42,7 @@ static uint32_t g_offset = 0;
 static void parse_arguments(int argc, char *argv[]);
 static void extract_key(char *key);
 static void extract_text(char *text);
-//
+
 static void run_encryption(char *text, char *key, char *text_encrypted);
 static void write_encryption_to_file(char *text);
 static void close_files(void);
@@ -62,8 +59,10 @@ int main(int argc, char *argv[])
 	
 	char text[NUMBER_OF_BYTES + 1];
 	char text_encrypted[NUMBER_OF_BYTES + 1];
+	
 	// extract the text for the encrypter
 	extract_text(text);
+	
 	// run encryption
 	run_encryption(text, key, text_encrypted);
 	write_encryption_to_file(text_encrypted);
@@ -78,6 +77,12 @@ int main(int argc, char *argv[])
 /************************************
 * static implementation             *
 ************************************/
+
+/// Description: Parse arguments and open files.  
+/// Parameters: 
+///		[in] argc - number of arguments. 
+///		[in] argv - arguments list. 
+/// Return: none.
 static void parse_arguments(int argc, char *argv[])
 {
 	// check if there is exact args.
@@ -93,16 +98,17 @@ static void parse_arguments(int argc, char *argv[])
 		printf("Error: failed opening files. \n");
 		exit(1);
 	}
-	
-	printf("exe - %s\n", argv[0]);
-	printf("text - %s\n", argv[1]);
-	printf("key - %s\n", argv[3]);
 
 	char *ptr;
+	
 	// str to uint
 	g_offset = strtol(argv[2], &ptr, 10);
 }
 
+/// Description: Extract key from key file.  
+/// Parameters: 
+///		[out] key - extracted key pointer. 
+/// Return: none.
 static void extract_key(char *key)
 {
 	// read the key from the file.
@@ -113,6 +119,10 @@ static void extract_key(char *key)
 	}
 }
 
+/// Description: Extract 16 bytes from text file.  
+/// Parameters: 
+///		[out] text - extracted text pointer. 
+/// Return: none.
 static void extract_text(char *text)
 {
 	// set offset location to begin reading
@@ -125,7 +135,13 @@ static void extract_text(char *text)
 	}
 }
 
-void run_encryption(char *text, char *key, char *text_encrypted)
+/// Description: Performing encryption.  
+/// Parameters: 
+///		[in] text - text pointer. 
+///		[in] key - key pointer. 
+///		[out] text_encrypted -  encrypted text pointer. 
+/// Return: none.
+static void run_encryption(char *text, char *key, char *text_encrypted)
 {
 	// XORing bitwise
 	for (int i = 0; i < strlen(key); i++)
@@ -135,6 +151,10 @@ void run_encryption(char *text, char *key, char *text_encrypted)
 	text_encrypted[strlen(key)] = '\0';
 }
 
+/// Description: Write encrypted text to file.  
+/// Parameters: 
+///		[in] text_encrypted - encrypted text pointer.
+/// Return: none.
 static void write_encryption_to_file(char *text_encrypted)
 {
 	FILE *p_result_file = NULL;

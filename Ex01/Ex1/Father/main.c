@@ -2,12 +2,9 @@
 /*!
 ******************************************************************************
 \file main.c
-\date 23 October 2021
-\author Shahr Dorit Morag & Ofir Guthman
-\brief
-
-\details
-
+\date 30 October 2021
+\authors Shahar Dorit Morag 315337238 & Ofir Guthman 205577018
+\project #1
 \par Copyright
 (c) Copyright 2021 Ofir & Shahar
 \par
@@ -57,8 +54,6 @@ static void call_son(PROCESS_INFORMATION* p_procinfo, uint32_t offset);
 static bool wait_for_process(PROCESS_INFORMATION* p_procinfo);
 static void close_handles(PROCESS_INFORMATION* procinfo);
 
-static void close_files(void);
-
 /************************************
 *       API implementation          *
 ************************************/
@@ -74,6 +69,12 @@ int main(int argc, char *argv[])
 /************************************
 * static implementation             *
 ************************************/
+
+/// Description: parse arguments and open files.  
+/// Parameters: 
+///		[in] argc - number of arguments. 
+///		[in] argv - arguments list. 
+/// Return: none.
 static void parse_arguments(int argc, char* argv[])
 {
 	// check if there is exact args.
@@ -100,6 +101,10 @@ static uint32_t get_file_length(FILE *p_file)
 	return ftell(p_file);
 }
 
+
+/// Description: Manage creation of new procceses. 
+/// Parameters: none. 
+/// Return: none.
 static void run_processes()
 {
 	uint32_t size = get_file_length(pg_message_file);
@@ -129,6 +134,11 @@ static void run_processes()
 	}
 }
 
+/// Description: Create new process.  
+/// Parameters: 
+///		[in] p_procinfo - process information. 
+///		[in] offset - offset of the output file.
+/// Return: none.
 static void call_son(PROCESS_INFORMATION *p_procinfo, uint32_t offset)
 {
 	// get cmd str lenght
@@ -167,9 +177,12 @@ static void call_son(PROCESS_INFORMATION *p_procinfo, uint32_t offset)
 		printf("Error: process creation failure \n");
 		exit(1);
 	}
-
 }
 
+/// Description: Handle wait for processes.  
+/// Parameters: 
+///		[in] p_procinfo - process information. 
+/// Return: true - process ended successfully, false - otherwise.
 static bool wait_for_process(PROCESS_INFORMATION* p_procinfo)
 {
 	DWORD exitcode;
@@ -212,11 +225,3 @@ static void close_handles(PROCESS_INFORMATION *procinfo)
 	CloseHandle(procinfo->hThread);
 	CloseHandle(procinfo->hProcess);
 }
-
-
-static void close_files(void)
-{
-	fclose(pg_message_file);
-	fclose(pg_key_file);
-}
-
