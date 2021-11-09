@@ -2,7 +2,8 @@
 ******************************************************************************
 \file 
 \date 24 October 2021
-\author Shahr Dorit Morag & Ofir Guthman
+\authors Shahar Dorit Morag 315337238 & Ofir Guthman 205577018
+\project #
 \brief 
 
 \details
