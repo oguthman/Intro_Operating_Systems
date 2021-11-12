@@ -1,3 +1,4 @@
+#define _CRT_SECURE_NO_WARNINGS
 /*!
 ******************************************************************************
 \file thread.c
@@ -44,7 +45,7 @@ static FILE* open_file(char *filename, char *mode);
 /************************************
 *       API implementation          *
 ************************************/
-HANDLE OpenNewThread(const s_thread_inputs input)
+HANDLE OpenNewThread(s_thread_inputs *input)
 {
 	// Create Thread, pass the routine function
 	LPDWORD thread_id;
@@ -78,31 +79,33 @@ static DWORD WINAPI routine_func(LPVOID lpParam)
 	s_thread_inputs *input = (s_thread_inputs *)lpParam;
 	printf("Starting the routine for school number %d\n", input->school_number);
 	// Open Files
-	FILE* real_file = open_file("Real", input->school_number, "r");
-	FILE* human_file = open_file("Human", input->school_number, "r");
-	FILE* eng_file = open_file("Eng", input->school_number, "r");
-	FILE* eval_file = open_file("Eval", input->school_number, "r");
-	FILE* result_file = open_file("Result", input->school_number, "w");
+	FILE* real_file = open_file("Real\\Real", input->school_number, "r");
+	FILE* human_file = open_file("Human\\Human", input->school_number, "r");
+	FILE* eng_file = open_file("Eng\\Eng", input->school_number, "r");
+	FILE* eval_file = open_file("Eval\\Eval", input->school_number, "r");
+	FILE* result_file = open_file("Results\\Results", input->school_number, "w");
 
 	// TODO: Iterate for all students
 	// Calculate avarage grades for all students
 	
-	int real_grade, human_grade, eng_grade, eval_grade, result_grade;
-	fscanf(real_file, "%d", real_grade);
-	fscanf(human_file, "%d", human_grade);
-	fscanf(eng_file, "%d", eng_grade);
-	fscanf(eval_file, "%d", eval_grade);
-	// calculate the avarage
-	result_grade =	((float)input->real_grade_weight / 100) * real_grade +
-					((float)input->human_grade_weight / 100) * human_grade +
-					((float)input->eng_grade_weight / 100) * eng_grade +
-					((float)input->eval_grade_weight / 100) * eval_grade;
-	// print to result file
+	int real_grade = 0, human_grade = 0, eng_grade = 0, eval_grade = 0, result_grade = 0;
+	
+	while ((fscanf(real_file, "%d", &real_grade) != EOF) &&
+		(fscanf(human_file, "%d", &human_grade) != EOF) &&
+		(fscanf(eng_file, "%d", &eng_grade) != EOF) &&
+		(fscanf(eval_file, "%d", &eval_grade) != EOF))
+	{
 
+		// calculate the avarage
+		result_grade =	((float)input->real_grade_weight / 100) * real_grade +
+						((float)input->human_grade_weight / 100) * human_grade +
+						((float)input->eng_grade_weight / 100) * eng_grade +
+						((float)input->eval_grade_weight / 100) * eval_grade;
 
-	// create new file for the results
-
-
+		// print to result file
+		fprintf(result_file, "%d\n", result_grade);
+	}
+	
 	// Close files
 	fclose(real_file);
 	fclose(human_file);
@@ -114,11 +117,14 @@ static DWORD WINAPI routine_func(LPVOID lpParam)
 // file_name is without extension (.txt)
 static FILE *open_file(char *filename, int school_number, char *mode)
 {
-	char file_name[10];
+	char file_name[20];
 	sprintf(file_name, "%s%d.txt", filename, school_number);
-	
+	printf("file name: %s\n", file_name);
+
 	FILE *file = fopen(file_name, mode);
-	ASSERT(file != NULL, "Error: failed open file\n");
+	//char* msg;
+	//sprintf(msg, "Error: failed open file\n", filename, school_number);
+	ASSERT(file != NULL, "Error: failed open file %s\n", file_name);
 	return file;
 }
 

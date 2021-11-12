@@ -24,11 +24,11 @@ ALL RIGHTS RESERVED
 /************************************
 *      definitions                 *
 ************************************/
-#define ASSERT(cond, msg)														\
+#define ASSERT(cond, msg, ...)														    \
 	do {																			\
 		if (!(cond)) {																\
 			printf("Assertion failed at file %s line %d: \n", __FILE__, __LINE__);	\
-			printf(msg);															\
+			printf(msg, __VA_ARGS__);															\
 			exit (1);																\
 		}																			\
 	} while (0);																	
@@ -64,6 +64,6 @@ Must be called only once
 
 \return none
 *****************************************************************************/
-HANDLE OpenNewThread(const s_thread_inputs input);
+HANDLE OpenNewThread(s_thread_inputs *input);
 
 #endif //__THREAD_H__
