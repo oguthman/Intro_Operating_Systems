@@ -19,7 +19,7 @@ ALL RIGHTS RESERVED
 ************************************/
 #include <windows.h>
 #include <stdio.h>
-//
+
 #include "thread.h"
 
 /************************************
@@ -40,7 +40,7 @@ ALL RIGHTS RESERVED
 ************************************/
 static HANDLE create_new_thread(LPTHREAD_START_ROUTINE p_start_routine, LPVOID p_thread_parameters, LPDWORD p_thread_id);
 static DWORD WINAPI routine_func(LPVOID lpParam);
-static FILE* open_file(char *filename, char *mode);
+static FILE* open_file(char * file_path, int school_number, char *mode);
 
 /************************************
 *       API implementation          *
@@ -78,6 +78,7 @@ static DWORD WINAPI routine_func(LPVOID lpParam)
 {
 	s_thread_inputs *input = (s_thread_inputs *)lpParam;
 	printf("Starting the routine for school number %d\n", input->school_number);
+	
 	// Open Files
 	FILE* real_file = open_file("Real\\Real", input->school_number, "r");
 	FILE* human_file = open_file("Human\\Human", input->school_number, "r");
@@ -85,9 +86,7 @@ static DWORD WINAPI routine_func(LPVOID lpParam)
 	FILE* eval_file = open_file("Eval\\Eval", input->school_number, "r");
 	FILE* result_file = open_file("Results\\Results", input->school_number, "w");
 
-	// TODO: Iterate for all students
 	// Calculate avarage grades for all students
-	
 	int real_grade = 0, human_grade = 0, eng_grade = 0, eval_grade = 0, result_grade = 0;
 	
 	while ((fscanf(real_file, "%d", &real_grade) != EOF) &&
@@ -114,17 +113,13 @@ static DWORD WINAPI routine_func(LPVOID lpParam)
 	fclose(result_file);
 }
 
-// file_name is without extension (.txt)
-static FILE *open_file(char *filename, int school_number, char *mode)
+static FILE *open_file(char *file_path, int school_number, char *mode)
 {
-	char file_name[20];
-	sprintf(file_name, "%s%d.txt", filename, school_number);
-	printf("file name: %s\n", file_name);
+	char file_name[50];
+	sprintf(file_name, "%s%d.txt", file_path, school_number);	// file_name is without extension (.txt)
 
 	FILE *file = fopen(file_name, mode);
-	//char* msg;
-	//sprintf(msg, "Error: failed open file\n", filename, school_number);
-	ASSERT(file != NULL, "Error: failed open file %s\n", file_name);
+	ASSERT(file != NULL, "Error: failed open file %s\nThread number %d failed", file_name, school_number);
 	return file;
 }
 
