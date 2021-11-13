@@ -59,20 +59,21 @@ int main(int argc, char* argv[])
 	
 	parse_arguments(argc, argv);
 	HANDLE handles[10];
+	s_thread_inputs inputs[10];
 	int number_of_active_handles = 0;
 	DWORD finished_thread_index = -1;		// init to unvalid value
 
 	// Loop over number of schools and open new thread for each school
 	for (int i = 0; i < gs_argument_inputs.number_of_schools; i++)
 	{
-		s_thread_inputs input = {i, gs_argument_inputs.real_weight, gs_argument_inputs.human_weight, gs_argument_inputs.eng_weight, gs_argument_inputs.eval_weight};
-
 		int index = finished_thread_index != -1 ? finished_thread_index : number_of_active_handles;
-		handles[index] = OpenNewThread(&input);
+		s_thread_inputs input = { i, gs_argument_inputs.real_weight, gs_argument_inputs.human_weight, gs_argument_inputs.eng_weight, gs_argument_inputs.eval_weight};
+		inputs[index] = input;
+		handles[index] = OpenNewThread(&inputs[index]);
 		number_of_active_handles++;
 		
 		// Create limitation for max 10 threads running in parallel
-		if (number_of_active_handles < 10) continue;
+		if (number_of_active_handles < 10 || i == gs_argument_inputs.number_of_schools - 1) continue;
 		
 		DWORD single_thread_status = WaitForMultipleObjects(
 			number_of_active_handles,		// number of arguments in handles array
@@ -107,11 +108,11 @@ static void parse_arguments(int argc, char* argv[])
 	ASSERT(argc == 6, "Error: not enough arguments.\n");
 
 	// Parse arguments
-	gs_argument_inputs.number_of_schools = argv[1];
-	gs_argument_inputs.real_weight = argv[2];
-	gs_argument_inputs.human_weight = argv[3];
-	gs_argument_inputs.eng_weight = argv[4];
-	gs_argument_inputs.eval_weight = argv[5];
+	gs_argument_inputs.number_of_schools = strtol(argv[1], NULL, 10);
+	gs_argument_inputs.real_weight = strtol(argv[2], NULL, 10);
+	gs_argument_inputs.human_weight = strtol(argv[3], NULL, 10);
+	gs_argument_inputs.eng_weight = strtol(argv[4], NULL, 10);
+	gs_argument_inputs.eval_weight = strtol(argv[5], NULL, 10);
 }
 
 static void close_handles(HANDLE* handles, int number_of_active_handles)

@@ -70,7 +70,7 @@ static HANDLE create_new_thread(LPTHREAD_START_ROUTINE p_start_routine,	LPVOID p
 		p_thread_parameters, /*  argument to thread function */
 		0,                   /*  use default creation flags */
 		p_thread_id);        /*  returns the thread identifier */
-
+	
 	return thread_handle;
 }
 
@@ -84,7 +84,13 @@ static DWORD WINAPI routine_func(LPVOID lpParam)
 	FILE* human_file = open_file("Human\\Human", input->school_number, "r");
 	FILE* eng_file = open_file("Eng\\Eng", input->school_number, "r");
 	FILE* eval_file = open_file("Eval\\Eval", input->school_number, "r");
+
+	// if information one file if missing, dont open results file
+	if (real_file == NULL || human_file == NULL || eng_file == NULL || eval_file == NULL)
+		return 1;
+
 	FILE* result_file = open_file("Results\\Results", input->school_number, "w");
+	if (result_file == NULL) return 1;
 
 	// Calculate avarage grades for all students
 	int real_grade = 0, human_grade = 0, eng_grade = 0, eval_grade = 0, result_grade = 0;
@@ -111,6 +117,7 @@ static DWORD WINAPI routine_func(LPVOID lpParam)
 	fclose(eng_file);
 	fclose(eval_file);
 	fclose(result_file);
+	return 0;
 }
 
 static FILE *open_file(char *file_path, int school_number, char *mode)
@@ -119,7 +126,10 @@ static FILE *open_file(char *file_path, int school_number, char *mode)
 	sprintf(file_name, "%s%d.txt", file_path, school_number);	// file_name is without extension (.txt)
 
 	FILE *file = fopen(file_name, mode);
-	ASSERT(file != NULL, "Error: failed open file %s\nThread number %d failed", file_name, school_number);
+	if (file == NULL)
+	{
+		printf("Error: failed open file %s\nThread number %d failed\n", file_name, school_number);
+	}
 	return file;
 }
 
