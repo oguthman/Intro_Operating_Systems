@@ -22,7 +22,6 @@ ALL RIGHTS RESERVED
 
 #include "thread.h"
 
-
 /************************************
 *      definitions                 *
 ************************************/
@@ -53,7 +52,6 @@ static void close_handles(HANDLE* handles, int number_of_active_handles);
 ************************************/
 int main(int argc, char* argv[])
 {
-
 	// Open new directory 'Results'
 	ASSERT((CreateDirectoryA("Results", NULL) != 0) || (GetLastError() == ERROR_ALREADY_EXISTS), "Error: failed opening new directory\n");
 	
@@ -67,7 +65,7 @@ int main(int argc, char* argv[])
 	for (int i = 0; i < gs_argument_inputs.number_of_schools; i++)
 	{
 		int index = finished_thread_index != -1 ? finished_thread_index : number_of_active_handles;
-		s_thread_inputs input = { i, gs_argument_inputs.real_weight, gs_argument_inputs.human_weight, gs_argument_inputs.eng_weight, gs_argument_inputs.eval_weight};
+		s_thread_inputs input = {i, gs_argument_inputs.real_weight, gs_argument_inputs.human_weight, gs_argument_inputs.eng_weight, gs_argument_inputs.eval_weight};
 		inputs[index] = input;
 		handles[index] = OpenNewThread(&inputs[index]);
 		number_of_active_handles++;
@@ -94,14 +92,17 @@ int main(int argc, char* argv[])
 		INFINITE);						// how much time in msec to wait for first handle to finish
 
 	close_handles(handles, number_of_active_handles);
-	
-	//TODO: not exit when thread failes, delete one file from folder and check if thread failes, limit number of threads to 10.
-
 }
 
 /************************************
 * static implementation             *
 ************************************/
+
+/// Description: parse arguments and open files.  
+/// Parameters: 
+///		[in] argc - number of arguments. 
+///		[in] argv - arguments list. 
+/// Return: none.
 static void parse_arguments(int argc, char* argv[])
 {
 	// Check if there are enough arguments
@@ -120,4 +121,3 @@ static void close_handles(HANDLE* handles, int number_of_active_handles)
 	for (int i = 0; i < number_of_active_handles; i++)	
 		CloseHandle(handles[i]);
 }
-	
