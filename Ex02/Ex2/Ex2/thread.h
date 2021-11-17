@@ -24,15 +24,14 @@ ALL RIGHTS RESERVED
 /************************************
 *      definitions                 *
 ************************************/
-#define ASSERT(cond, msg, ...)														    \
+#define ASSERT(cond, msg, ...)														\
 	do {																			\
 		if (!(cond)) {																\
 			printf("Assertion failed at file %s line %d: \n", __FILE__, __LINE__);	\
-			printf(msg, __VA_ARGS__);															\
+			printf(msg, __VA_ARGS__);												\
 			exit (1);																\
 		}																			\
 	} while (0);																	
-
 
 /************************************
 *       types                       *
