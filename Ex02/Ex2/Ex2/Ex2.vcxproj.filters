@@ -21,9 +21,18 @@
     <ClCompile Include="thread.c">
       <Filter>Source Files</Filter>
     </ClCompile>
+    <ClCompile Include="FileApi\file.c">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="FileApi\example.c">
+      <Filter>Source Files</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="thread.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="FileApi\file.h">
       <Filter>Header Files</Filter>
     </ClInclude>
   </ItemGroup>

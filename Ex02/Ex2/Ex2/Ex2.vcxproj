@@ -139,10 +139,13 @@
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
+    <ClCompile Include="FileApi\example.c" />
+    <ClCompile Include="FileApi\file.c" />
     <ClCompile Include="main.c" />
     <ClCompile Include="thread.c" />
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="FileApi\file.h" />
     <ClInclude Include="thread.h" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
