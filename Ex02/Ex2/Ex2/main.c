@@ -65,6 +65,10 @@ int main(int argc, char* argv[])
 	int number_of_active_handles = 0;
 	DWORD finished_thread_index = -1;		// init to unvalid value
 
+	// Init threads mutex
+	if (InitiateMutex() == false)
+		exit(1);
+
 	// Loop over number of schools and open new thread for each school
 	for (int i = 0; i < gs_argument_inputs.number_of_schools; i++)
 	{
@@ -90,6 +94,9 @@ int main(int argc, char* argv[])
 	bool status = wait_for_thread(handles, number_of_active_handles, &finished_thread_index, true);
 
 	close_handles(handles, number_of_active_handles);
+	// close mutex handle
+	CloseMutex();
+
 	return status ? 0 : 1;
 }
 
@@ -139,6 +146,7 @@ static bool wait_for_thread(HANDLE *handles, int number_of_active_handles, int *
 		for (int i = 0; i < number_of_active_handles; i++)
 		{
 			TerminateThread(handles[i], TERMINATE_ALL_THREADS_EXITCODE);
+			CloseHandle(handles[i]);
 		}
 
 		// Wait a few milliseconds for the process to terminate,

@@ -20,6 +20,7 @@ ALL RIGHTS RESERVED
 *      include                      *
 ************************************/
 #include <stdio.h>
+#include <stdbool.h>
 
 /************************************
 *      definitions                 *
@@ -48,6 +49,7 @@ typedef struct
 /************************************
 *       API                         *
 ************************************/
+bool InitiateMutex(void);
 
 /*!
 ******************************************************************************
@@ -64,5 +66,7 @@ Must be called only once
 \return none
 *****************************************************************************/
 HANDLE OpenNewThread(s_thread_inputs *input);
+
+void CloseMutex(void);
 
 #endif //__THREAD_H__

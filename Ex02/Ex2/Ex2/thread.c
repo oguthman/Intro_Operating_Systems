@@ -35,6 +35,7 @@ ALL RIGHTS RESERVED
 /************************************
 *      variables                    *
 ************************************/
+static HANDLE g_mutex_handle;
 
 /************************************
 *      static functions             *
@@ -47,11 +48,31 @@ bool read_file_grade(File* file, int* grade);
 /************************************
 *       API implementation          *
 ************************************/
+bool InitiateMutex(void)
+{
+	/* Create the mutex that will be used to synchronize access to count */
+	g_mutex_handle = CreateMutex(
+		NULL,	/* default security attributes */
+		FALSE,	/* initially not owned */
+		NULL);	/* unnamed mutex */
+	if (NULL == g_mutex_handle)
+	{
+		printf("Error when creating mutex: %d\n", GetLastError());
+		return false;
+	}
+	return true;
+}
+
 HANDLE OpenNewThread(s_thread_inputs *input)
 {
 	// Create Thread, pass the routine function
 	DWORD thread_id;
 	return create_new_thread(routine_func, input, &thread_id);
+}
+
+void CloseMutex(void)
+{
+	CloseHandle(g_mutex_handle);
 }
 
 /************************************
@@ -107,7 +128,6 @@ static DWORD WINAPI routine_func(LPVOID lpParam)
 	// Calculate avarage grades for all students
 	int real_grade = 0, human_grade = 0, eng_grade = 0, eval_grade = 0, result_grade = 0;
 	
-	
 	while ((read_file_grade(p_real_file, &real_grade) == true) &&
 		(read_file_grade(p_human_file, &human_grade) == true) &&
 		(read_file_grade(p_eng_file, &eng_grade) == true) &&
@@ -122,7 +142,7 @@ static DWORD WINAPI routine_func(LPVOID lpParam)
 		// Print to result file
 		char line[10];
 		sprintf(line, "%d\n", result_grade);
-		File_Write(p_result_file, line, strlen(line));
+		File_Write(p_result_file, line, (int)strlen(line));
 	}
 	
 	// Close files
@@ -161,22 +181,37 @@ static File *open_file(char *file_path, int school_number, char *mode)
 /// Return: p_file - file pointer for opened file.
 bool read_file_grade(File* file, int *grade)
 {
+	// Wait for the mutex to become available, then take ownership.
+	DWORD wait_code = WaitForSingleObject(g_mutex_handle, INFINITE);
+	if (WAIT_OBJECT_0 != wait_code)
+	{
+		printf("Error when waiting for mutex\n");
+		return false;
+	}
+	
 	int max_length = 10;
 	char* line = (char*)malloc((max_length) * sizeof(char));
 
-	if (line == NULL)
+	bool file_res = false;
+	if (line != NULL)
 	{
-		printf("Error: failed allocating memory \n");
-		return false;
-	}
-
-	if (!File_ReadLine(file, line, max_length) || !sscanf(line, "%d", grade))
-	{
-		//printf("Error: Read line failed\n");
+		bool file_res = (File_ReadLine(file, line, max_length) && (sscanf(line, "%d", grade) != 0));
 		free(line);
+
+		if (file_res == false)
+		{
+			ReleaseMutex(g_mutex_handle);
+			return false;
+		}
+	}
+
+	// Releasing the mutex.
+	DWORD ret_val = ReleaseMutex(g_mutex_handle);
+	if (FALSE == ret_val)
+	{
+		printf("Error when releasing the mutex\n");
 		return false;
 	}
 
-	free(line);
 	return true;
 }
