@@ -18,9 +18,10 @@ ALL RIGHTS RESERVED
 *      include                      *
 ************************************/
 #include <windows.h>
-#include <stdio.h>
+#include <string.h>
 
 #include "thread.h"
+#include "FileApi\file.h"
 
 /************************************
 *      definitions                 *
@@ -40,7 +41,8 @@ ALL RIGHTS RESERVED
 ************************************/
 static HANDLE create_new_thread(LPTHREAD_START_ROUTINE p_start_routine, LPVOID p_thread_parameters, LPDWORD p_thread_id);
 static DWORD WINAPI routine_func(LPVOID lpParam);
-static FILE* open_file(char * file_path, int school_number, char *mode);
+static File* open_file(char * file_path, int school_number, char *mode);
+bool read_file_grade(File* file, int* grade);
 
 /************************************
 *       API implementation          *
@@ -48,7 +50,7 @@ static FILE* open_file(char * file_path, int school_number, char *mode);
 HANDLE OpenNewThread(s_thread_inputs *input)
 {
 	// Create Thread, pass the routine function
-	LPDWORD thread_id;
+	DWORD thread_id;
 	return create_new_thread(routine_func, input, &thread_id);
 }
 
@@ -90,42 +92,45 @@ static DWORD WINAPI routine_func(LPVOID lpParam)
 	printf("Starting the routine for school number %d\n", input->school_number);
 	
 	// Open Files
-	FILE* p_real_file = open_file("Real\\Real", input->school_number, "r");
-	FILE* p_human_file = open_file("Human\\Human", input->school_number, "r");
-	FILE* p_eng_file = open_file("Eng\\Eng", input->school_number, "r");
-	FILE* p_eval_file = open_file("Eval\\Eval", input->school_number, "r");
+	File* p_real_file = open_file("Real\\Real", input->school_number, "r");
+	File* p_human_file = open_file("Human\\Human", input->school_number, "r");
+	File* p_eng_file = open_file("Eng\\Eng", input->school_number, "r");
+	File* p_eval_file = open_file("Eval\\Eval", input->school_number, "r");
 
 	// if information of one file is missing, don't open results file and exit function
 	if (p_real_file == NULL || p_human_file == NULL || p_eng_file == NULL || p_eval_file == NULL)
 		return 1;
 
-	FILE* p_result_file = open_file("Results\\Results", input->school_number, "w");
+	File* p_result_file = open_file("Results\\Results", input->school_number, "w");
 	if (p_result_file == NULL) return 1;
 
 	// Calculate avarage grades for all students
 	int real_grade = 0, human_grade = 0, eng_grade = 0, eval_grade = 0, result_grade = 0;
 	
-	while ((fscanf(p_real_file, "%d", &real_grade) != EOF) &&
-		(fscanf(p_human_file, "%d", &human_grade) != EOF) &&
-		(fscanf(p_eng_file, "%d", &eng_grade) != EOF) &&
-		(fscanf(p_eval_file, "%d", &eval_grade) != EOF))
+	
+	while ((read_file_grade(p_real_file, &real_grade) == true) &&
+		(read_file_grade(p_human_file, &human_grade) == true) &&
+		(read_file_grade(p_eng_file, &eng_grade) == true) &&
+		(read_file_grade(p_eval_file, &eval_grade) == true))
 	{
 		// Calculate the avarage
-		result_grade =	((float)input->real_grade_weight / 100) * real_grade +
-						((float)input->human_grade_weight / 100) * human_grade +
-						((float)input->eng_grade_weight / 100) * eng_grade +
-						((float)input->eval_grade_weight / 100) * eval_grade;
+		result_grade = (input->real_grade_weight * real_grade +
+			input->human_grade_weight * human_grade +
+			input->eng_grade_weight * eng_grade +
+			input->eval_grade_weight * eval_grade) / 100;
 
 		// Print to result file
-		fprintf(p_result_file, "%d\n", result_grade);
+		char line[10];
+		sprintf(line, "%d\n", result_grade);
+		File_Write(p_result_file, line, strlen(line));
 	}
 	
 	// Close files
-	fclose(p_real_file);
-	fclose(p_human_file);
-	fclose(p_eng_file);
-	fclose(p_eval_file);
-	fclose(p_result_file);
+	File_Close(p_real_file);
+	File_Close(p_human_file);
+	File_Close(p_eng_file);
+	File_Close(p_eval_file);
+	File_Close(p_result_file);
 	return 0;
 }
 
@@ -135,15 +140,43 @@ static DWORD WINAPI routine_func(LPVOID lpParam)
 ///		school_number
 ///		mode - mode for read/write/append.
 /// Return: p_file - file pointer for opened file.
-static FILE *open_file(char *file_path, int school_number, char *mode)
+static File *open_file(char *file_path, int school_number, char *mode)
 {
 	char file_name[50];
 	sprintf(file_name, "%s%d.txt", file_path, school_number);	// file_name is without extension (.txt)
 
-	FILE *p_file = fopen(file_name, mode);
+	File *p_file = File_Open(file_name, mode);
 	if (p_file == NULL)
 	{
 		printf("Error: failed open file %s\nThread number %d failed\n", file_name, school_number);
 	}
 	return p_file;
+}
+
+/// Description: Open file.  
+/// Parameters: 
+///		file_path 
+///		school_number
+///		mode - mode for read/write/append.
+/// Return: p_file - file pointer for opened file.
+bool read_file_grade(File* file, int *grade)
+{
+	int max_length = 10;
+	char* line = (char*)malloc((max_length) * sizeof(char));
+
+	if (line == NULL)
+	{
+		printf("Error: failed allocating memory \n");
+		return false;
+	}
+
+	if (!File_ReadLine(file, line, max_length) || !sscanf(line, "%d", grade))
+	{
+		//printf("Error: Read line failed\n");
+		free(line);
+		return false;
+	}
+
+	free(line);
+	return true;
 }

@@ -139,7 +139,6 @@
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
-    <ClCompile Include="FileApi\example.c" />
     <ClCompile Include="FileApi\file.c" />
     <ClCompile Include="main.c" />
     <ClCompile Include="thread.c" />

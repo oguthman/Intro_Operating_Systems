@@ -81,7 +81,7 @@ File* File_Open(char* fileName, char* mode)
 
     // Check for error
     if (*source == INVALID_HANDLE_VALUE) {
-        printf("Error: Source file not opened. Error %u", GetLastError());
+        printf("Error: Source file not opened. Error %u\n", GetLastError());
         free(source);
         return NULL;
     }
@@ -129,16 +129,13 @@ bool File_ReadLine(File* file, char* line, int max_line_length)
         
     int return_len = (int)(strlen(line) - read_len + 2);
     DWORD succeed = SetFilePointer(*file, return_len, NULL, FILE_CURRENT);
-    switch (succeed)
-    {
-        case INVALID_SET_FILE_POINTER:
-        case ERROR_NEGATIVE_SEEK:
-        {
-            printf("Error: unable to move file pointer (error %d)\n", succeed);
-            return false;
-        }
-    }
+    DWORD pos = SetFilePointer(*file, 0, NULL, FILE_CURRENT);
 
+    if (succeed == INVALID_SET_FILE_POINTER)
+    {
+        printf("Error: unable to move file pointer (error %d) from [%d] to [%d]\n", succeed, pos, pos - return_len);
+        return false;
+    }
     return true;
 }
 
@@ -154,7 +151,7 @@ bool File_Scanf(File* file, int max_length, char* format, va_list args)
 
     if(!File_ReadLine(file, line, max_length) || !sscanf(line, format, args))
     {
-        printf("Error: Read line failed\n");
+        //printf("Error: Read line failed\n");
         free(line);
         return false;
     }
@@ -168,7 +165,7 @@ int File_Write(File* file, char* buffer, int count)
     DWORD bytesWritten;
 
     if (!WriteFile(*file, buffer, count, &bytesWritten, NULL)) {
-        printf("Error: Target file not written to (error %u)", GetLastError());
+        printf("Error: Target file not written to (error %u)\n", GetLastError());
         return 0;
     }
     return bytesWritten;

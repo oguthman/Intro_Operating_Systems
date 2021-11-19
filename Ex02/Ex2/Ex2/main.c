@@ -19,12 +19,15 @@ ALL RIGHTS RESERVED
 ************************************/
 #include <windows.h>
 #include <fileapi.h>
+#include <stdbool.h>
 
 #include "thread.h"
 
 /************************************
 *      definitions                 *
 ************************************/
+#define THREAD_TIMEOUT	5000	// 5 seconds
+#define TERMINATE_ALL_THREADS_EXITCODE 0x55
 
 /************************************
 *       types                       *
@@ -46,6 +49,7 @@ static struct {
 ************************************/
 static void parse_arguments(int argc, char* argv[]);
 static void close_handles(HANDLE* handles, int number_of_active_handles);
+static bool wait_for_thread(HANDLE* handles, int number_of_active_handles, int* finished_thread_index, bool wait_for_all);
 
 /************************************
 *       API implementation          *
@@ -73,25 +77,20 @@ int main(int argc, char* argv[])
 		// Create limitation for max 10 threads running in parallel
 		if (number_of_active_handles < 10 || i == gs_argument_inputs.number_of_schools - 1) continue;
 		
-		DWORD single_thread_status = WaitForMultipleObjects(
-			number_of_active_handles,		// number of arguments in handles array
-			handles,						// pointer to handles array
-			FALSE,							// rather wait for all handles to finish or not
-			INFINITE);						// how much time in msec to wait for first handle to finish
+		if (wait_for_thread(handles, number_of_active_handles, &finished_thread_index, false) == false)
+		{
+			close_handles(handles, number_of_active_handles);
+			exit(1);
+		}
 
-		// 10 threads are runnuing and one finished. Save it's index and decrease number_of_active_handles
-		finished_thread_index = single_thread_status - WAIT_OBJECT_0;
 		CloseHandle(handles[finished_thread_index]);
 		number_of_active_handles--;
 	}
 
-	WaitForMultipleObjects(
-		number_of_active_handles,		// number of arguments in handles array
-		handles,						// pointer to handles array
-		TRUE,							// rather wait for all handles to finish or not
-		INFINITE);						// how much time in msec to wait for first handle to finish
+	bool status = wait_for_thread(handles, number_of_active_handles, &finished_thread_index, true);
 
 	close_handles(handles, number_of_active_handles);
+	return status ? 0 : 1;
 }
 
 /************************************
@@ -115,6 +114,59 @@ static void parse_arguments(int argc, char* argv[])
 	gs_argument_inputs.eng_weight = strtol(argv[4], NULL, 10);
 	gs_argument_inputs.eval_weight = strtol(argv[5], NULL, 10);
 }
+
+/// Description: Handle wait for processes.  
+/// Parameters: 
+///		[in] p_procinfo - process information. 
+/// Return: true - process ended successfully, false - otherwise.
+static bool wait_for_thread(HANDLE *handles, int number_of_active_handles, int *finished_thread_index, bool wait_for_all)
+{
+	DWORD single_thread_status = WaitForMultipleObjects(
+		number_of_active_handles,		// number of arguments in handles array
+		handles,						// pointer to handles array
+		wait_for_all,					// rather wait for all handles to finish or not
+		THREAD_TIMEOUT);				// how much time in msec to wait for first handle to finish
+
+	// 10 threads are runnuing and one finished. Save it's index and decrease number_of_active_handles
+
+	switch (single_thread_status)
+	{
+	case WAIT_TIMEOUT:
+	{
+		printf("All running threads didn't finish after %d ms. Terminationg all thereads\n", THREAD_TIMEOUT);
+
+		// Terminate all running threads
+		for (int i = 0; i < number_of_active_handles; i++)
+		{
+			TerminateThread(handles[i], TERMINATE_ALL_THREADS_EXITCODE);
+		}
+
+		// Wait a few milliseconds for the process to terminate,
+		Sleep(10);
+		return false;
+	}
+	case WAIT_OBJECT_0:
+	case WAIT_OBJECT_0+1:
+	case WAIT_OBJECT_0+2:
+	case WAIT_OBJECT_0+3:
+	case WAIT_OBJECT_0+4:
+	case WAIT_OBJECT_0+5:
+	case WAIT_OBJECT_0+6:
+	case WAIT_OBJECT_0+7:
+	case WAIT_OBJECT_0+8:
+	case WAIT_OBJECT_0+9:
+	{
+		*finished_thread_index = single_thread_status - WAIT_OBJECT_0;
+		return true;
+	}
+	default:
+	{
+		printf("WaitForMultipleObject has returned with code %d. The program will exit\n", single_thread_status);
+		return false;
+	}
+	}
+}
+
 
 static void close_handles(HANDLE* handles, int number_of_active_handles)
 {
