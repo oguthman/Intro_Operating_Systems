@@ -26,7 +26,7 @@ ALL RIGHTS RESERVED
 /************************************
 *      definitions                 *
 ************************************/
-#define THREAD_TIMEOUT	5000	// 5 seconds
+#define THREAD_TIMEOUT	500000	// 5 seconds
 #define TERMINATE_ALL_THREADS_EXITCODE 0x55
 
 /************************************

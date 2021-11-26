@@ -175,10 +175,9 @@ static File *open_file(char *file_path, int school_number, char *mode)
 
 /// Description: Open file.  
 /// Parameters: 
-///		file_path 
-///		school_number
-///		mode - mode for read/write/append.
-/// Return: p_file - file pointer for opened file.
+///		file - pointer to a file 
+///		grade - pointer to grade
+/// Return: bool if read grade succeeded or false otherwise
 bool read_file_grade(File* file, int *grade)
 {
 	// Wait for the mutex to become available, then take ownership.
@@ -190,7 +189,7 @@ bool read_file_grade(File* file, int *grade)
 	}
 	
 	int max_length = 10;
-	char* line = (char*)malloc((max_length) * sizeof(char));
+	char *line = (char*)malloc((max_length) * sizeof(char));
 
 	bool file_res = false;
 	if (line != NULL)

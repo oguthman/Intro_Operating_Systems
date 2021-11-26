@@ -68,7 +68,7 @@ File* File_Open(char* fileName, char* mode)
     swprintf(file_name, length, L"%hs", fileName);
 
     // Open the source file
-    *source = CreateFile(file_name,                // name of the write
+    *source = CreateFile(file_name,               // name of the write
                          access,                  // open for writing
                          share,                   // do not share
                          NULL,                    // default security
@@ -117,9 +117,9 @@ bool File_ReadLine(File* file, char* line, int max_line_length)
     }
 
     int read_len = File_Read(file, buffer, max_line_length);
-    if (!sscanf(buffer, "%s", line))
+    if (read_len <= 2 || !sscanf(buffer, "%s", line))
     {
-        printf("Error: parsing line\n");
+        //printf("Error: parsing line\n");
         free(buffer);
         return false;
     }
