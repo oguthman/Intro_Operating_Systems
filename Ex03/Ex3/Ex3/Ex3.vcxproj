@@ -139,10 +139,14 @@
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
-    <ClCompile Include="template.c" />
+    <ClCompile Include="db.c" />
+    <ClCompile Include="FileApi\example.c" />
+    <ClCompile Include="FileApi\file.c" />
+    <ClCompile Include="main.c" />
   </ItemGroup>
   <ItemGroup>
-    <ClInclude Include="template.h" />
+    <ClInclude Include="db.h" />
+    <ClInclude Include="FileApi\file.h" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">

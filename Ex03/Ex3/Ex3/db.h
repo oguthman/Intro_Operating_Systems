@@ -1,6 +1,6 @@
 /*!
 ******************************************************************************
-\file file_name.h
+\file db.h
 \date 26 November 2021
 \author Shahar Dorit Morag & Ofir Guthman
 \brief 
@@ -13,12 +13,14 @@
 ALL RIGHTS RESERVED
 *****************************************************************************/
 
-#ifndef __FILE_NAME_H__
-#define __FILE_NAME_H__
+#ifndef __DB_H__
+#define __DB_H__
 
 /************************************
 *      include                      *
 ************************************/
+#include <stdint.h>
+#include <stdbool.h>
 
 /************************************
 *      definitions                 *
@@ -27,12 +29,21 @@ ALL RIGHTS RESERVED
 /************************************
 *       types                       *
 ************************************/
+typedef struct {
+	uint32_t frame_number;
+	bool valid;
+	uint32_t end_of_use;
+}s_virtual;
 
+typedef struct {
+	uint32_t frame_number;
+	uint32_t end_of_use;
+}s_pysical;
 
 /************************************
 *       API                         *
 ************************************/
-
+void db_init(uint32_t virtual_memory_size, uint32_t physical_memory_size);
 /*!
 ******************************************************************************
 \brief
@@ -49,4 +60,4 @@ Must be called only once
 *****************************************************************************/
 
 
-#endif //__FILE_NAME_H__
+#endif //__DB_H__
