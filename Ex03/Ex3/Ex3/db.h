@@ -36,14 +36,20 @@ typedef struct {
 }s_virtual;
 
 typedef struct {
-	uint32_t frame_number;
+	uint32_t page_number;
+	bool valid;
 	uint32_t end_of_use;
 }s_pysical;
 
 /************************************
 *       API                         *
 ************************************/
-void db_init(uint32_t virtual_memory_size, uint32_t physical_memory_size);
+void db_init(uint32_t virtual_memory_size, uint32_t physical_memory_size, uint32_t* clock);
+bool is_page_in_frame(uint32_t page_numbe);
+void update_frame_eou(uint32_t page_numbe, uint32_t time_of_use);
+bool try_find_free_frame(uint32_t page_number, uint32_t time_of_use);
+void clear_all_frames();
+
 /*!
 ******************************************************************************
 \brief

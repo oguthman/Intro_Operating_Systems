@@ -143,10 +143,12 @@
     <ClCompile Include="FileApi\example.c" />
     <ClCompile Include="FileApi\file.c" />
     <ClCompile Include="main.c" />
+    <ClCompile Include="queue.c" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="db.h" />
     <ClInclude Include="FileApi\file.h" />
+    <ClInclude Include="queue.h" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">
