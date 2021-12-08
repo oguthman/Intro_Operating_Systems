@@ -18,8 +18,10 @@ ALL RIGHTS RESERVED
 *      include                      *
 ************************************/
 #include "db.h"
+
 #include <string.h>
 #include <stdlib.h>
+#include <stdio.h>
 
 /************************************
 *      definitions                 *
@@ -54,6 +56,13 @@ void db_init(uint32_t virtual_memory_size, uint32_t physical_memory_size, uint32
 	g_physical_memory_size = physical_memory_size;
 	gp_page_table = malloc(g_virtual_memory_size * sizeof(s_virtual));
 	gp_frame_table = malloc(g_physical_memory_size * sizeof(s_pysical));
+
+	if (gp_page_table == NULL || gp_frame_table == NULL)
+	{
+		printf("db allocation failed\n");
+		exit(1);
+	}
+
 	memset((uint8_t*)gp_page_table, 0, g_virtual_memory_size * sizeof(s_virtual));
 	memset((uint8_t*)gp_frame_table, 0, g_physical_memory_size * sizeof(s_pysical));
 }
