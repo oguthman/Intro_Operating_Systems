@@ -85,6 +85,10 @@ void queue_push(s_node **head, uint32_t time)
 	}
 }
 
+bool queue_is_empty(s_node** head)
+{
+	return (*head == NULL);
+}
 
 /************************************
 * static implementation             *

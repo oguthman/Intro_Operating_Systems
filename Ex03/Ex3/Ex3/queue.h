@@ -46,8 +46,8 @@ typedef struct node {
 ************************************/
 
 uint32_t queue_pop(s_node** head);
-
 void queue_push(s_node** head, uint32_t time);
+bool queue_is_empty(s_node** head);
 
 
 #endif //__QUEUE_H__
