@@ -117,12 +117,16 @@ bool File_ReadLine(File* file, char* line, int max_line_length)
     }
 
     int read_len = File_Read(file, buffer, max_line_length);
-    if (read_len <= 2 || !sscanf(buffer, "%s", line))
+    buffer[read_len < max_line_length ? read_len : max_line_length - 1] = '\0';
+    char* p_line = strtok(buffer, "\n\r");
+    if (read_len <= 2 || p_line == NULL)
     {
         //printf("Error: parsing line\n");
         free(buffer);
         return false;
     }
+    // cpy line
+    strcpy(line, p_line);
 
     // clean buffer
     free(buffer);
