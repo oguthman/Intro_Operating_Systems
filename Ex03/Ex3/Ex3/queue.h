@@ -37,7 +37,8 @@ ALL RIGHTS RESERVED
 *       types                       *
 ************************************/
 typedef struct node {
-	uint32_t time;
+	void* item;
+	uint32_t priority;
 	struct node *next;
 } s_node;
 
@@ -45,9 +46,12 @@ typedef struct node {
 *       API                         *
 ************************************/
 
-uint32_t queue_pop(s_node** head);
-void queue_push(s_node** head, uint32_t time);
 bool queue_is_empty(s_node** head);
+
+void* queue_pop(s_node** head);
+void queue_push(s_node** head, void* item);
+
+void priority_queue_push(s_node** head, void* item, uint32_t priority, bool inc_order);
 
 
 #endif //__QUEUE_H__

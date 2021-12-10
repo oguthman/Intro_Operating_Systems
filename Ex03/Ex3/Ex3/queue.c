@@ -43,30 +43,49 @@ static s_node* create_new_node(uint32_t time);
 /************************************
 *       API implementation          *
 ************************************/
-uint32_t queue_pop(s_node **head)
+bool queue_is_empty(s_node** head)
 {
-	if (*head == NULL)
-		return -1;
+	return (*head == NULL);
+}
+
+void* queue_pop(s_node **head)
+{
+	if (queue_is_empty(head))
+		return NULL;
 
 	s_node *current = *head;
 	(*head) = current->next;
 
-	uint32_t time = current->time;
+	void* item = current->item;
 	free(current);
-	return time;
+	return item;
 }
 
-// check double **
-void queue_push(s_node **head, uint32_t time)
+void queue_push(s_node **head, void* item)
 {
-	s_node *node = create_new_node(time);
+	s_node *node = create_new_node(item);
 	
+	if (queue_is_empty(head))
+		*head = node;
+	
+	else
+	{
+		node->next = *head;
+		(*head) = node;
+	}
+}
+
+void priority_queue_push(s_node** head, void* item, uint32_t priority, bool inc_order)
+{
+	s_node* node = create_new_node(item);
+	node->priority = priority;
+
 	if (*head == NULL)
 	{
 		*head = node;
 	}
 
-	else if ((*head)->time > node->time)
+	else if (inc_order ? (*head)->priority > node->priority : (*head)->priority < node->priority)
 	{
 		node->next = *head;
 		(*head) = node;
@@ -75,7 +94,8 @@ void queue_push(s_node **head, uint32_t time)
 	else
 	{
 		s_node* current = *head;
-		while (current->next != NULL && current->next->time < node->time)
+		while (current->next != NULL &&
+			(inc_order ? current->next->priority < node->priority : current->next->priority < node->priority))
 		{
 			current = current->next;
 		}
@@ -85,20 +105,16 @@ void queue_push(s_node **head, uint32_t time)
 	}
 }
 
-bool queue_is_empty(s_node** head)
-{
-	return (*head == NULL);
-}
 
 /************************************
 * static implementation             *
 ************************************/
-static s_node* create_new_node(uint32_t time)
+static s_node* create_new_node(void* item)
 {
 	s_node* node = malloc(sizeof(s_node));
 	ASSERT(node != NULL, "failed creating new node\n");	
 	
-	node->time = time;
+	node->item = item;
 	node->next = NULL;
 
 	return node;
