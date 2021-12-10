@@ -75,7 +75,7 @@ void queue_push(s_node **head, void* item)
 	}
 }
 
-void priority_queue_push(s_node** head, void* item, uint32_t priority, bool inc_order)
+void queue_priority_push(s_node** head, void* item, uint32_t priority, bool inc_order)
 {
 	s_node* node = create_new_node(item);
 	node->priority = priority;
@@ -104,7 +104,6 @@ void priority_queue_push(s_node** head, void* item, uint32_t priority, bool inc_
 		current->next = node;
 	}
 }
-
 
 /************************************
 * static implementation             *

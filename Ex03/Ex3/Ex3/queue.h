@@ -49,9 +49,9 @@ typedef struct node {
 bool queue_is_empty(s_node** head);
 
 void* queue_pop(s_node** head);
-void queue_push(s_node** head, void* item);
+void queue_push(s_node** head, void* item);	//stack
 
-void priority_queue_push(s_node** head, void* item, uint32_t priority, bool inc_order);
+void queue_priority_push(s_node** head, void* item, uint32_t priority, bool inc_order);
 
 
 #endif //__QUEUE_H__
