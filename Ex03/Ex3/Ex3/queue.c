@@ -37,7 +37,7 @@ ALL RIGHTS RESERVED
 /************************************
 *      static functions             *
 ************************************/
-static s_node* create_new_node(uint32_t time);
+static s_node* create_new_node(void* item);
 
 
 /************************************

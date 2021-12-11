@@ -22,6 +22,8 @@ ALL RIGHTS RESERVED
 #include <stdint.h>
 #include <stdbool.h>
 
+#include "FileApi/file.h"
+
 /************************************
 *      definitions                 *
 ************************************/
@@ -48,7 +50,7 @@ s_virtual* gp_page_table;
 s_pysical* gp_frame_table;
 
 
-void db_init(uint32_t virtual_memory_size, uint32_t physical_memory_size, uint32_t* clock);
+void db_init(uint32_t virtual_memory_size, uint32_t physical_memory_size, uint32_t* clock, File* p_output_file);
 bool is_page_in_frame(uint32_t page_numbe);
 void update_frame_eou(uint32_t page_numbe, uint32_t time_of_use);
 bool try_find_free_frame(uint32_t page_number, uint32_t time_of_use);

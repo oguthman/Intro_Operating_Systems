@@ -1,3 +1,4 @@
+#define _CRT_SECURE_NO_WARNINGS
 /*!
 ******************************************************************************
 \file db.c
@@ -37,7 +38,7 @@ ALL RIGHTS RESERVED
 //s_virtual *gp_page_table;
 //s_pysical *gp_frame_table;
 
-
+static File* gp_output_file;
 static uint32_t g_virtual_memory_size;
 static uint32_t g_physical_memory_size;
 static uint32_t *gp_clock;
@@ -45,14 +46,15 @@ static uint32_t *gp_clock;
 /************************************
 *      static functions             *
 ************************************/
-static void update_tables(uint32_t page_number, uint32_t time_of_use, uint32_t frame_number);
+static void update_tables(uint32_t page_number, uint32_t time_of_use, uint32_t frame_number, bool print_to_output);
 static void clear_frame(uint32_t page_number);
 
 /************************************
 *       API implementation          *
 ************************************/
-void db_init(uint32_t virtual_memory_size, uint32_t physical_memory_size, uint32_t *clock)
+void db_init(uint32_t virtual_memory_size, uint32_t physical_memory_size, uint32_t *clock, File* p_output_file)
 {
+	gp_output_file = p_output_file;
 	gp_clock = clock;
 	g_virtual_memory_size = virtual_memory_size;
 	g_physical_memory_size = physical_memory_size;
@@ -76,7 +78,7 @@ bool is_page_in_frame(uint32_t page_numbe)
 
 void update_frame_eou(uint32_t page_numbe, uint32_t time_of_use)
 {
-	update_tables(page_numbe, time_of_use, gp_page_table[page_numbe].frame_number);
+	update_tables(page_numbe, time_of_use, gp_page_table[page_numbe].frame_number, false);
 	//gp_page_table[page_numbe].end_of_use = time_of_use;
 	//gp_page_table[page_numbe].valid = true;	//for now- just in case
 }
@@ -88,7 +90,7 @@ bool try_find_free_frame(uint32_t page_number, uint32_t time_of_use)
 	{
 		if (!gp_frame_table[frame_number].valid)
 		{
-			update_tables(page_number, time_of_use, frame_number);
+			update_tables(page_number, time_of_use, frame_number, true);
 			return true;
 		}
 	}
@@ -100,7 +102,7 @@ bool try_find_free_frame(uint32_t page_number, uint32_t time_of_use)
 		if (gp_frame_table[frame_number].end_of_use <= *gp_clock)
 		{
 			clear_frame(gp_frame_table[frame_number].page_number);
-			update_tables(page_number, time_of_use, frame_number);
+			update_tables(page_number, time_of_use, frame_number, true);
 			return true;
 		}
 	}
@@ -123,7 +125,7 @@ void clear_all_frames()
 /************************************
 * static implementation             *
 ************************************/
-static void update_tables(uint32_t page_number, uint32_t time_of_use, uint32_t frame_number)
+static void update_tables(uint32_t page_number, uint32_t time_of_use, uint32_t frame_number, bool print_to_output)
 {
 	// update physical memory
 	gp_frame_table[frame_number].page_number = page_number;
@@ -134,14 +136,27 @@ static void update_tables(uint32_t page_number, uint32_t time_of_use, uint32_t f
 	gp_page_table[page_number].frame_number = frame_number;
 	gp_page_table[page_number].valid = true;
 	gp_page_table[page_number].end_of_use = *gp_clock + time_of_use;
+
+	if (print_to_output) 
+	{
+		// update output file
+		char line[50];
+		sprintf(line, "%d %d %d %s\n", *gp_clock, page_number, frame_number, "P");
+		File_Write(gp_output_file, line, (int)strlen(line));
+	}
 }
 
 static void clear_frame(uint32_t page_number)
 {
+	uint32_t frame_number = gp_page_table[page_number].frame_number;
+	
 	// clear virtual memory
 	gp_page_table[page_number].frame_number = 0;
 	gp_page_table[page_number].valid = false;
 	gp_page_table[page_number].end_of_use = 0;
 
-	//TODO: update output file
+	// update output file
+	char line[50];
+	sprintf(line, "%d %d %d %s\n", *gp_clock, page_number, frame_number, "E");
+	File_Write(gp_output_file, line, (int)strlen(line));
 }
