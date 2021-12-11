@@ -38,7 +38,7 @@ ALL RIGHTS RESERVED
 *      static functions             *
 ************************************/
 static s_node* create_new_node(void* item);
-
+static s_node_lru* create_new_node_lru(uint32_t page_number, uint32_t time_of_use);
 
 /************************************
 *       API implementation          *
@@ -105,6 +105,47 @@ void queue_priority_push(s_node** head, void* item, uint32_t priority, bool inc_
 	}
 }
 
+void queue_lru_push(s_node_lru** head, uint32_t page_number, uint32_t time_of_use) {
+	s_node_lru* new_node = create_new_node_lru(page_number, time_of_use);
+
+	if (*head == NULL)
+	{
+		*head = new_node;
+		return;
+	}
+	
+	s_node_lru* current = *head;
+	while (current->next != NULL)
+	{
+		if (current->next->page_number == new_node->page_number)
+		{
+			//put first
+			new_node = *head;
+			current->next = current->next->next;
+			return;
+		}			
+		current = current->next;
+	}
+	current = new_node;	
+}
+
+
+bool check_if_available(s_node_lru** head, uint32_t time, int32_t* page_to_clear)
+{
+	s_node_lru* current = *head;
+	while (current->next != NULL) 
+	{
+		// clear node from LRU linked list
+		if (current->next->time_of_use <= time)
+		{
+			*page_to_clear = (int32_t)current->next->page_number;
+			current->next = current->next->next;
+			return 1;
+		}
+	}
+	return 0;
+}
+
 /************************************
 * static implementation             *
 ************************************/
@@ -114,6 +155,18 @@ static s_node* create_new_node(void* item)
 	ASSERT(node != NULL, "failed creating new node\n");	
 	
 	node->item = item;
+	node->next = NULL;
+
+	return node;
+}
+
+static s_node_lru* create_new_node_lru(uint32_t page_number, uint32_t time_of_use)
+{
+	s_node_lru* node = malloc(sizeof(s_node_lru));
+	ASSERT(node != NULL, "failed creating new node\n");
+
+	node->page_number = page_number;
+	node->time_of_use = time_of_use;
 	node->next = NULL;
 
 	return node;

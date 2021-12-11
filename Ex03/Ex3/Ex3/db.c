@@ -19,6 +19,7 @@ ALL RIGHTS RESERVED
 *      include                      *
 ************************************/
 #include "db.h"
+#include "queue.h"
 
 #include <string.h>
 #include <stdlib.h>
@@ -41,7 +42,8 @@ ALL RIGHTS RESERVED
 static File* gp_output_file;
 static uint32_t g_virtual_memory_size;
 static uint32_t g_physical_memory_size;
-static uint32_t *gp_clock;
+static uint32_t* gp_clock;
+static s_node_lru* gp_LRU_queue = NULL;
 
 /************************************
 *      static functions             *
@@ -94,15 +96,12 @@ bool try_find_free_frame(uint32_t page_number, uint32_t time_of_use)
 	}
 	
 	// check if page in frame reached eou
-	for (uint32_t frame_number = 0; frame_number < g_physical_memory_size; frame_number++)
+	int32_t* page_to_clear = NULL;
+	if (check_if_available(&gp_LRU_queue, *gp_clock, page_to_clear))
 	{
-		//TODO: LRU implementation
-		if (gp_frame_table[frame_number].end_of_use <= *gp_clock)
-		{
-			clear_frame(gp_frame_table[frame_number].page_number);
-			update_tables(page_number, time_of_use, frame_number, true);
-			return true;
-		}
+		clear_frame(page_to_clear);
+		update_tables(page_number, time_of_use, gp_page_table[*page_to_clear].frame_number, true);
+		return true;
 	}
 	
 	// no frame available
@@ -134,6 +133,9 @@ static void update_tables(uint32_t page_number, uint32_t time_of_use, uint32_t f
 	gp_page_table[page_number].frame_number = frame_number;
 	gp_page_table[page_number].valid = true;
 	gp_page_table[page_number].end_of_use = *gp_clock + time_of_use;
+
+	// add to LRU linked list
+	queue_lru_push(&gp_LRU_queue, page_number, time_of_use);
 
 	if (print_to_output) 
 	{

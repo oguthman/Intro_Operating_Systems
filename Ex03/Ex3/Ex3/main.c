@@ -48,7 +48,7 @@ ALL RIGHTS RESERVED
 	} while (0);
 
 #define PAGE_SIZE 12		//bits
-#define THREAD_TIMEOUT	5000	// 5 seconds
+#define THREAD_TIMEOUT	10000	// 5 seconds
 #define TERMINATE_ALL_THREADS_EXITCODE 0x55
 
 /************************************
@@ -95,23 +95,13 @@ static HANDLE create_semaphore(int init_count, int max_count);
 /************************************
 *       API implementation          *
 ************************************/
-// create virtual db for pages
-// create physical db for frame
-// create clk - time is updated per request
+// TODO:
+// warrning
+// LRU
+// check semaphore change with more tests
+// make sure close protocol
+// write main a description
 
-// create output file
-// init loop and check if there are no requests and all threads a finished.
-// read file - get request
-// get time
-// 
-// for every line in file create thread (request)
-// go to physical db to check which frame is available
-// when availabe, update output: time, page, frame,output (p/e). virtual: frame, valid, endofuse. physical: the new change.
-
-// when loop is done: clear all frames and update output by index - from lower to higher
-
-// free handles
-// close files
 int main(int argc, char* argv[])
 {
 	parse_arguments(argc, argv);
@@ -163,10 +153,9 @@ int main(int argc, char* argv[])
 	while (!queue_is_empty(&gp_clocks_queue))		
 	{
 		DWORD code = WaitForSingleObject(g_semaphore, 1000);
-		if (code == WAIT_OBJECT_0 || code == WAIT_TIMEOUT)	//or if flag == 1
+		if (code == WAIT_OBJECT_0 || code == WAIT_TIMEOUT)
 		{
 			g_clock = (int32_t)queue_pop(&gp_clocks_queue);
-			//ReleaseSemaphore(g_semaphore);	// or flag == 0
 			printf("g_clock - %d\n", g_clock);
 		}
 		//Sleep(1000);
@@ -182,15 +171,10 @@ int main(int argc, char* argv[])
 		{
 			printf("frame number {%d}, valid {%d}, eou {%d}\n", gp_page_table[i].frame_number, gp_page_table[i].valid, gp_page_table[i].end_of_use);
 		}
-
-		// TODO: waiting for some event 
-		// wait enough tome for thread to finish routine
 	}
 	
 	// wait for threads
 	bool status = wait_for_thread(handles, count-1);
-
-	//TODO: output file
 
 	clear_all_frames();
 
@@ -263,8 +247,6 @@ static DWORD WINAPI thread_routine(LPVOID lpParam)
 	while (g_clock < (int32_t) request->time)
 	{
 		Sleep(10);
-		// wait for semaphore
-
 	}
 	
 	printf("request after while - %d, %d, %d, clock %d\n", request->time, request->virtual_address, request->time_of_use, g_clock);
@@ -287,13 +269,11 @@ static DWORD WINAPI thread_routine(LPVOID lpParam)
 		uint32_t new_time_eou = request->time_of_use + g_clock;
 		queue_priority_push(&gp_clocks_queue, (void*)new_time_eou, new_time_eou, true);
 
-		// flag = 1
 		ReleaseSemaphore(g_semaphore, 1, NULL);
 		return 0;
 	}
 
 
-	// TODO: decide if we want to change the while to semaphore
 	// find relevant frame for new page. If there isn't, wait.
 	bool succeed = false;
 	do
@@ -309,7 +289,6 @@ static DWORD WINAPI thread_routine(LPVOID lpParam)
 	uint32_t new_time_eou = request->time_of_use + g_clock;
 	queue_priority_push(&gp_clocks_queue, (void*)new_time_eou, new_time_eou, true);
 
-	//flag = 1
 	ReleaseSemaphore(g_semaphore, 1, NULL);
 	return 0;
 }

@@ -23,6 +23,8 @@ ALL RIGHTS RESERVED
 #include <stdbool.h>
 #include <stdio.h>
 
+#include "db.h"
+
 /************************************
 *      definitions                 *
 ************************************/
@@ -40,8 +42,14 @@ ALL RIGHTS RESERVED
 typedef struct node {
 	void* item;
 	uint32_t priority;
-	struct node *next;
+	struct node* next;
 } s_node;
+
+typedef struct node_lru {
+	uint32_t page_number;
+	uint32_t time_of_use;
+	struct node_lru* next;
+} s_node_lru;
 
 /************************************
 *       API                         *
@@ -53,6 +61,7 @@ void* queue_pop(s_node** head);
 void queue_push(s_node** head, void* item);	//stack
 
 void queue_priority_push(s_node** head, void* item, uint32_t priority, bool inc_order);
-
+void queue_lru_push(s_node_lru** head, uint32_t page_number, uint32_t time_of_use);
+bool check_if_available(s_node_lru** head, uint32_t time, int32_t* page_to_clear);
 
 #endif //__QUEUE_H__
