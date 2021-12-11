@@ -75,6 +75,8 @@ static s_node* gp_clocks_queue = NULL;
 static bool g_thread_exit = false;
 
 static HANDLE g_mutex_critical_section = NULL;
+static HANDLE g_semaphore = NULL;
+
 
 /************************************
 *      static functions             *
@@ -117,6 +119,7 @@ int main(int argc, char* argv[])
 	ASSERT(p_output_file != NULL, "Error: failed opening output file\n");
 	db_init(gs_argument_inputs.virtual_memory_size, gs_argument_inputs.physical_memory_size, &g_clock, p_output_file);
 	g_mutex_critical_section = create_mutex();
+	g_semaphore = create_semaphore(1, 1);
 
 	s_request request;
 	uint32_t count = 1;
@@ -159,13 +162,14 @@ int main(int argc, char* argv[])
 	// run the clock - get next clk from queue
 	while (!queue_is_empty(&gp_clocks_queue))		
 	{
-		g_clock = (int32_t)queue_pop(&gp_clocks_queue);
-		printf("g_clock - %d\n", g_clock);
-
-		// update semaphore
-		// release semaphore (up count-1)
-
-		Sleep(1000);
+		DWORD code = WaitForSingleObject(g_semaphore, 1000);
+		if (code == WAIT_OBJECT_0 || code == WAIT_TIMEOUT)	//or if flag == 1
+		{
+			g_clock = (int32_t)queue_pop(&gp_clocks_queue);
+			//ReleaseSemaphore(g_semaphore);	// or flag == 0
+			printf("g_clock - %d\n", g_clock);
+		}
+		//Sleep(1000);
 
 		printf("Frame Table:\n");
 		for (uint32_t i = 0; i < gs_argument_inputs.physical_memory_size; i++)
@@ -229,9 +233,9 @@ static void parse_arguments(int argc, char* argv[])
 
 /// Description: Open file, read line from file and create request using line parameters.  
 /// Parameters: 
-///		file - pointer to a file 
-///		grade - pointer to grade
-/// Return: bool if read grade succeeded or false otherwise
+///		[in] file - pointer to a file.
+///		[out] request - pointer to request list.
+/// Return: bool if read line and write request succeeded or false otherwise.
 static bool read_file_input(File* file, s_request* request)
 {
 	int max_length = 20;
@@ -240,12 +244,16 @@ static bool read_file_input(File* file, s_request* request)
 	return	(File_ReadLine(file, line, max_length) &&
 			(sscanf(line, "%d %d %d", &(request->time), &(request->virtual_address), &(request->time_of_use)) != 0));
 }
-//choose the correct frame to place the new page
-	// 0. check if g_clock >= time, if so continue. otherwise wait.
-	// 1. if page is already inside a frame - update end of use of virtual/physical
-	// 2. if page doesnt exist and there is a free frame - update valid, frame number, eou
-	// 3. if page doesnt exist and frame in eou - replace page in frame. update frame number, eou
-	// 4. if page doesnt exist and frames in use, wait.
+
+/// Description: find the correct frame to place the new page.
+	// 0. check if global clock >= request time, if so continue. otherwise wait.
+	// 1. if page is already inside a frame - update end of use of virtual/physical memoey.
+	// 2. if page doesn't exist in frame and there is a frame available - update page parameters.
+	// 3. if page doesn't exist and frame in eou - replace page in frame. clear the old frame and update with new page parameters.
+	// 4. if page doesn't exist and all frames in use, wait.  
+/// Parameters: 
+///		[in] lpParam - parameters of new page request.
+/// Return: DWORD 0 if thread routine succeeded or 1 otherwise.
 static DWORD WINAPI thread_routine(LPVOID lpParam)
 {
 	s_request* request = (s_request*)lpParam;
@@ -255,7 +263,7 @@ static DWORD WINAPI thread_routine(LPVOID lpParam)
 	while (g_clock < (int32_t) request->time)
 	{
 		Sleep(10);
-		// wait for semaphor
+		// wait for semaphore
 
 	}
 	
@@ -279,6 +287,8 @@ static DWORD WINAPI thread_routine(LPVOID lpParam)
 		uint32_t new_time_eou = request->time_of_use + g_clock;
 		queue_priority_push(&gp_clocks_queue, (void*)new_time_eou, new_time_eou, true);
 
+		// flag = 1
+		ReleaseSemaphore(g_semaphore, 1, NULL);
 		return 0;
 	}
 
@@ -293,22 +303,21 @@ static DWORD WINAPI thread_routine(LPVOID lpParam)
 		succeed = try_find_free_frame(page_number, request->time_of_use);
 		THREAD_ASSERT(ReleaseMutex(g_mutex_critical_section) == true, "Error: failed releasing mutex\n");
 		
-		// TODO: for now debug
-		// Sleep(100);
 	} while (!succeed);
 	
 	// add g_clock + request->time_of_use to clocks queue
 	uint32_t new_time_eou = request->time_of_use + g_clock;
 	queue_priority_push(&gp_clocks_queue, (void*)new_time_eou, new_time_eou, true);
 
+	//flag = 1
+	ReleaseSemaphore(g_semaphore, 1, NULL);
 	return 0;
 }
 
 /// Description: Create new thread.  
 /// Parameters: 
-///		p_start_routine - thread function. 
-///		p_thread_parameters - parametes for thread function.
-///		p_thread_id - id of the new thread.
+///		[in] p_start_routine - thread function. 
+///		[in] p_thread_parameters - parametes for thread function.
 /// Return: thread_handle - handle for the new thread.
 static HANDLE create_new_thread(LPTHREAD_START_ROUTINE p_start_routine, LPVOID p_thread_parameters)
 {
@@ -328,10 +337,11 @@ static HANDLE create_new_thread(LPTHREAD_START_ROUTINE p_start_routine, LPVOID p
 	return thread_handle;
 }
 
-/// Description: Handle wait for processes.  
+/// Description: wait for running threads to finish.  
 /// Parameters: 
-///		[in] p_procinfo - process information. 
-/// Return: true - process ended successfully, false - otherwise.
+///		[in] handles - handles array of running threads. 
+///		[in] number_of_active_handles - count of runnig threads. 
+/// Return: true - thread ended successfully, false - otherwise.
 static bool wait_for_thread(HANDLE* handles, int number_of_active_handles)
 {
 	DWORD threads_status = WaitForMultipleObjects(
@@ -367,12 +377,21 @@ static bool wait_for_thread(HANDLE* handles, int number_of_active_handles)
 	}
 }
 
+/// Description: close all thread handles.  
+/// Parameters: 
+///		[in] handles - handles array of running threads. 
+///		[in] number_of_active_handles - count of runnig threads. 
+/// Return: none.
 static void close_handles(HANDLE* handles, uint32_t number_of_active_handles)
 {
 	for (uint32_t i = 0; i < number_of_active_handles; i++)
 		CloseHandle(handles[i]);
 }
 
+/// Description: free all nodes in linked list.  
+/// Parameters: 
+///		[in] queue - pointer to queue list. 
+/// Return: none.
 static void free_queue_items(s_node* queue)
 {
 	while (!queue_is_empty(&queue))
@@ -381,6 +400,14 @@ static void free_queue_items(s_node* queue)
 	}
 }
 
+/// Description: exit protocol - close open filse and free handles and memory allocation.  
+/// Parameters: 
+///		[in] handles - handles array of running threads. 
+///		[in] number_of_active_handles - count of runnig threads. 
+///		[in] input_file - pointer to input file. 
+///		[in] output_file - pointer to output file. 
+///		[in] head - pointer to head of linked list. 
+/// Return: none.
 static void exit_protocol(HANDLE* handles, uint32_t number_of_active_handles, File* input_file, File* output_file, s_node* head) {
 	//close files and handles, free memory
 	File_Close(input_file);

@@ -79,8 +79,6 @@ bool is_page_in_frame(uint32_t page_numbe)
 void update_frame_eou(uint32_t page_numbe, uint32_t time_of_use)
 {
 	update_tables(page_numbe, time_of_use, gp_page_table[page_numbe].frame_number, false);
-	//gp_page_table[page_numbe].end_of_use = time_of_use;
-	//gp_page_table[page_numbe].valid = true;	//for now- just in case
 }
 
 bool try_find_free_frame(uint32_t page_number, uint32_t time_of_use)

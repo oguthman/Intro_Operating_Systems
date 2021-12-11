@@ -48,12 +48,12 @@ bool queue_is_empty(s_node** head)
 	return (*head == NULL);
 }
 
-void* queue_pop(s_node **head)
+void* queue_pop(s_node** head)
 {
 	if (queue_is_empty(head))
 		return NULL;
 
-	s_node *current = *head;
+	s_node* current = *head;
 	(*head) = current->next;
 
 	void* item = current->item;
@@ -63,7 +63,7 @@ void* queue_pop(s_node **head)
 
 void queue_push(s_node **head, void* item)
 {
-	s_node *node = create_new_node(item);
+	s_node* node = create_new_node(item);
 	
 	if (queue_is_empty(head))
 		*head = node;
