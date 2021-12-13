@@ -18,6 +18,7 @@ ALL RIGHTS RESERVED
 *      include                      *
 ************************************/
 #include "queue.h"
+
 #include <string.h>
 #include <stdlib.h>
 
@@ -28,7 +29,6 @@ ALL RIGHTS RESERVED
 /************************************
 *       types                       *
 ************************************/
-
 
 /************************************
 *      variables                    *
@@ -67,7 +67,6 @@ void queue_push(s_node **head, void* item)
 	
 	if (queue_is_empty(head))
 		*head = node;
-	
 	else
 	{
 		node->next = *head;
@@ -113,37 +112,88 @@ void queue_lru_push(s_node_lru** head, uint32_t page_number, uint32_t time_of_us
 		*head = new_node;
 		return;
 	}
+
+	if ((*head)->page_number == new_node->page_number)
+	{
+		s_node_lru* temp = *head;
+		*head = temp->next;
+		free(temp);
+
+		if (*head == NULL)
+		{
+			*head = new_node;
+			return;
+		}
+	}
 	
 	s_node_lru* current = *head;
 	while (current->next != NULL)
 	{
+		// page exist in queue
 		if (current->next->page_number == new_node->page_number)
 		{
-			//put first
-			new_node = *head;
+			s_node_lru* temp = current->next;
 			current->next = current->next->next;
-			return;
-		}			
+			free(temp);
+
+			if (current->next == NULL)
+			{
+				current->next = new_node;
+				return;
+			}
+		}
 		current = current->next;
 	}
-	current = new_node;	
+	current->next = new_node;	
 }
 
 
-bool check_if_available(s_node_lru** head, uint32_t time, int32_t* page_to_clear)
+bool queue_lru_pop_available_page(s_node_lru** head, uint32_t time, uint32_t* page_to_clear)
 {
+	if (queue_lru_is_empty(head))
+		return false;
+	
+	// available in head of queue
+	if ((*head)->time_of_use <= time)
+	{
+		*page_to_clear = (uint32_t)queue_lru_pop(head);
+		return true;
+	}
+	
 	s_node_lru* current = *head;
 	while (current->next != NULL) 
 	{
 		// clear node from LRU linked list
 		if (current->next->time_of_use <= time)
 		{
-			*page_to_clear = (int32_t)current->next->page_number;
-			current->next = current->next->next;
-			return 1;
+			s_node_lru* temp = current->next;
+			*page_to_clear = temp->page_number;
+			current->next = temp->next;
+			free(temp);
+			return true;
 		}
+
+		current = current->next;
 	}
-	return 0;
+	return false;
+}
+
+bool queue_lru_is_empty(s_node_lru** head)
+{
+	return (*head == NULL);
+}
+
+void* queue_lru_pop(s_node_lru** head)
+{
+	if (queue_lru_is_empty(head))
+		return NULL;
+
+	s_node_lru* current = *head;
+	(*head) = current->next;
+
+	void* item = (void*)current->page_number;
+	free(current);
+	return item;
 }
 
 /************************************

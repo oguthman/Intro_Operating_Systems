@@ -48,7 +48,8 @@ ALL RIGHTS RESERVED
 	} while (0);
 
 #define PAGE_SIZE 12		//bits
-#define THREAD_TIMEOUT	10000	// 5 seconds
+#define THREAD_TIMEOUT				5000	// 5 seconds
+#define WAIT_FOR_THREADS_TIMEOUT	500		// 500ms
 #define TERMINATE_ALL_THREADS_EXITCODE 0x55
 
 /************************************
@@ -73,14 +74,15 @@ static struct {
 static int32_t g_clock = -1;
 static s_node* gp_clocks_queue = NULL;
 static bool g_thread_exit = false;
+static File* gp_output_file = NULL;
 
 static HANDLE g_mutex_critical_section = NULL;
 static HANDLE g_semaphore = NULL;
 
-
 /************************************
 *      static functions             *
 ************************************/
+static void init(int argc, char* argv[]);
 static void parse_arguments(int argc, char* argv[]);
 static bool read_file_input(File* file, s_request* request);
 static DWORD WINAPI thread_routine(LPVOID lpParam);
@@ -95,102 +97,81 @@ static HANDLE create_semaphore(int init_count, int max_count);
 /************************************
 *       API implementation          *
 ************************************/
-// TODO:
-// warrning
-// LRU
-// check semaphore change with more tests
-// make sure close protocol
-// write main a description
-
+/// Description: open treads by requests from input file and running the clock. 
+/// Parameters: 
+///		[in] argc - number of arguments. 
+///		[in] argv - arguments list. 
+/// Return: true if succeeded or false otherwise.
 int main(int argc, char* argv[])
 {
-	parse_arguments(argc, argv);
-	File* p_output_file = File_Open("Output.txt", "w");
-	ASSERT(p_output_file != NULL, "Error: failed opening output file\n");
-	db_init(gs_argument_inputs.virtual_memory_size, gs_argument_inputs.physical_memory_size, &g_clock, p_output_file);
-	g_mutex_critical_section = create_mutex();
-	g_semaphore = create_semaphore(1, 1);
+	init(argc, argv);
 
 	s_request request;
 	uint32_t count = 1;
-	// s_request* requests = NULL;
 	s_node* requests_queue = NULL;
 	HANDLE* handles = NULL;
 
 	// open new thread for each line in input file
-	while(read_file_input(gs_argument_inputs.input_file, &request))
+	while (read_file_input(gs_argument_inputs.input_file, &request))
 	{
 		// protect from memory leack
-		// s_request* temp_request = realloc(requests, sizeof(s_request) * count);
 		s_request* temp_request = malloc(sizeof(s_request));
 		HANDLE* temp_handle = realloc(handles, sizeof(HANDLE) * count);
 
 		if (temp_request == NULL || temp_handle == NULL)
 		{
 			printf("Error: failed reallocating memory");
-			
-			exit_protocol(handles, count - 1, gs_argument_inputs.input_file, p_output_file, requests_queue);
+
+			exit_protocol(handles, count - 1, gs_argument_inputs.input_file, gp_output_file, requests_queue);
 			exit(1);
 		}
-		else
-		{
-			// requests = temp_request;
-			memcpy(temp_request, &request, sizeof(request));
-			queue_push(&requests_queue, temp_request);
-			handles = temp_handle;
-		}
+
+		memcpy(temp_request, &request, sizeof(request));
+		queue_push(&requests_queue, temp_request);
+		handles = temp_handle;
 
 		// add request time to time queue
 		queue_priority_push(&gp_clocks_queue, (void*)request.time, request.time, true);
 
 		// create threads
-		handles[count - 1] = create_new_thread(thread_routine, temp_request);
+		HANDLE handle = create_new_thread(thread_routine, temp_request);
+		if (handle == NULL)
+		{
+			printf("Error: failed creating a thread\nReceived NULL pointer\n");
+			exit_protocol(handles, count - 1, gs_argument_inputs.input_file, gp_output_file, requests_queue);
+			exit(1);
+		}
+		handles[count - 1] = handle;
 		Sleep(10);
 		count++;
 	}
 
 	// run the clock - get next clk from queue
-	while (!queue_is_empty(&gp_clocks_queue))		
+	while (!queue_is_empty(&gp_clocks_queue))
 	{
-		DWORD code = WaitForSingleObject(g_semaphore, 1000);
+		// wait for thread to finish and signal the semaphore
+		// if thread is waiting for free frame, continue to the next clock after WAIT_FOR_THREADS_TIMEOUT.
+		DWORD code = WaitForSingleObject(g_semaphore, WAIT_FOR_THREADS_TIMEOUT);
 		if (code == WAIT_OBJECT_0 || code == WAIT_TIMEOUT)
 		{
 			g_clock = (int32_t)queue_pop(&gp_clocks_queue);
 			printf("g_clock - %d\n", g_clock);
 		}
-		//Sleep(1000);
-
-		printf("Frame Table:\n");
-		for (uint32_t i = 0; i < gs_argument_inputs.physical_memory_size; i++)
+		else
 		{
-			printf("page number {%d}, valid {%d}, eou {%d}\n", gp_frame_table[i].page_number, gp_frame_table[i].valid, gp_frame_table[i].end_of_use);
+			printf("Error: failed waiting for thread\n");
+			exit_protocol(handles, count - 1, gs_argument_inputs.input_file, gp_output_file, requests_queue);
+			exit(1);
 		}
-
-		printf("Page Table:\n");
-		for (uint32_t i = 0; i < gs_argument_inputs.virtual_memory_size; i++)
-		{
-			printf("frame number {%d}, valid {%d}, eou {%d}\n", gp_page_table[i].frame_number, gp_page_table[i].valid, gp_page_table[i].end_of_use);
-		}
+		db_print_tables();
 	}
-	
+
 	// wait for threads
-	bool status = wait_for_thread(handles, count-1);
+	bool status = wait_for_thread(handles, count - 1);
 
 	clear_all_frames();
-
-	printf("Frame Table:\n");
-	for (uint32_t i = 0; i < gs_argument_inputs.physical_memory_size; i++)
-	{
-		printf("page number {%d}, valid {%d}, eou {%d}\n", gp_frame_table[i].page_number, gp_frame_table[i].valid, gp_frame_table[i].end_of_use);
-	}
-
-	printf("Page Table:\n");
-	for (uint32_t i = 0; i < gs_argument_inputs.virtual_memory_size; i++)
-	{
-		printf("frame number {%d}, valid {%d}, eou {%d}\n", gp_page_table[i].frame_number, gp_page_table[i].valid, gp_page_table[i].end_of_use);
-	}
-
-	exit_protocol(handles, count - 1, gs_argument_inputs.input_file, p_output_file, requests_queue);
+	db_print_tables();
+	exit_protocol(handles, count - 1, gs_argument_inputs.input_file, gp_output_file, requests_queue);
 
 	return status ? 0 : 1;
 }
@@ -198,6 +179,21 @@ int main(int argc, char* argv[])
 /************************************
 * static implementation             *
 ************************************/
+/// Description: initialize all relevant variables and modules.
+/// Parameters: 
+///		[in] argc - number of arguments. 
+///		[in] argv - arguments list. 
+/// Return: none.
+static void init(int argc, char* argv[])
+{
+	parse_arguments(argc, argv);
+	gp_output_file = File_Open("Output.txt", "w");
+	ASSERT(gp_output_file != NULL, "Error: failed opening output file\n");
+	db_init(gs_argument_inputs.virtual_memory_size, gs_argument_inputs.physical_memory_size, &g_clock, gp_output_file);
+	g_mutex_critical_section = create_mutex();
+	g_semaphore = create_semaphore(1, 1);
+}
+
 /// Description: parse arguments and open files.  
 /// Parameters: 
 ///		[in] argc - number of arguments. 
@@ -205,21 +201,21 @@ int main(int argc, char* argv[])
 /// Return: none.
 static void parse_arguments(int argc, char* argv[])
 {
-	// Check if there are enough arguments
+	// check if there are enough arguments
 	ASSERT(argc == 4, "Error: not enough arguments.\n");
 
-	// Parse arguments
+	// parse arguments
 	gs_argument_inputs.virtual_memory_size = 1 << (strtol(argv[1], NULL, 10) - PAGE_SIZE);
 	gs_argument_inputs.physical_memory_size = 1 << (strtol(argv[2], NULL, 10) - PAGE_SIZE);
 	gs_argument_inputs.input_file = File_Open(argv[3], "r");
 	ASSERT(gs_argument_inputs.input_file != NULL, "Error: Can't open input file\n");
 }
 
-/// Description: Open file, read line from file and create request using line parameters.  
+/// Description: open file, read line from file and create request using line parameters.  
 /// Parameters: 
 ///		[in] file - pointer to a file.
 ///		[out] request - pointer to request list.
-/// Return: bool if read line and write request succeeded or false otherwise.
+/// Return: true if read line and write request succeeded or false otherwise.
 static bool read_file_input(File* file, s_request* request)
 {
 	int max_length = 20;
@@ -233,7 +229,7 @@ static bool read_file_input(File* file, s_request* request)
 	// 0. check if global clock >= request time, if so continue. otherwise wait.
 	// 1. if page is already inside a frame - update end of use of virtual/physical memoey.
 	// 2. if page doesn't exist in frame and there is a frame available - update page parameters.
-	// 3. if page doesn't exist and frame in eou - replace page in frame. clear the old frame and update with new page parameters.
+	// 3. if page doesn't exist and  there is frame in eou - replace page in frame. clear the old frame and update with new page parameters.
 	// 4. if page doesn't exist and all frames in use, wait.  
 /// Parameters: 
 ///		[in] lpParam - parameters of new page request.
@@ -241,20 +237,17 @@ static bool read_file_input(File* file, s_request* request)
 static DWORD WINAPI thread_routine(LPVOID lpParam)
 {
 	s_request* request = (s_request*)lpParam;
-
-	// TODO: decide if we want to change the while to semaphore
+	
 	// check if there are relevant threads to start routine
-	while (g_clock < (int32_t) request->time)
-	{
-		Sleep(10);
-	}
+	while (g_clock < (int32_t)request->time);
 	
 	printf("request after while - %d, %d, %d, clock %d\n", request->time, request->virtual_address, request->time_of_use, g_clock);
 
 	int page_number = (request->virtual_address) >> PAGE_SIZE;
 
 	// enter critical section
-	THREAD_ASSERT(WaitForSingleObject(g_mutex_critical_section, THREAD_TIMEOUT) == WAIT_OBJECT_0, "Error: failed waiting for mutex\n");
+	THREAD_ASSERT(WaitForSingleObject(g_mutex_critical_section, THREAD_TIMEOUT) == WAIT_OBJECT_0, "Error: failed waiting for mutex (#%d)\n", request->time);
+
 	bool page_in_frame = is_page_in_frame(page_number);
 	if (!page_in_frame)
 		THREAD_ASSERT(ReleaseMutex(g_mutex_critical_section) == true, "Error: failed releasing mutex\n");
@@ -273,16 +266,17 @@ static DWORD WINAPI thread_routine(LPVOID lpParam)
 		return 0;
 	}
 
-
 	// find relevant frame for new page. If there isn't, wait.
 	bool succeed = false;
 	do
 	{
 		// enter critical section
-		THREAD_ASSERT(WaitForSingleObject(g_mutex_critical_section, THREAD_TIMEOUT) == WAIT_OBJECT_0, "Error: failed waiting for mutex\n");
+		THREAD_ASSERT(WaitForSingleObject(g_mutex_critical_section, THREAD_TIMEOUT) == WAIT_OBJECT_0, "Error: failed waiting for mutex (#%d)\n", request->time);
 		succeed = try_find_free_frame(page_number, request->time_of_use);
 		THREAD_ASSERT(ReleaseMutex(g_mutex_critical_section) == true, "Error: failed releasing mutex\n");
 		
+		// prevent starvation
+		Sleep(5);
 	} while (!succeed);
 	
 	// add g_clock + request->time_of_use to clocks queue
@@ -293,7 +287,7 @@ static DWORD WINAPI thread_routine(LPVOID lpParam)
 	return 0;
 }
 
-/// Description: Create new thread.  
+/// Description: create new thread.  
 /// Parameters: 
 ///		[in] p_start_routine - thread function. 
 ///		[in] p_thread_parameters - parametes for thread function.
@@ -303,7 +297,11 @@ static HANDLE create_new_thread(LPTHREAD_START_ROUTINE p_start_routine, LPVOID p
 	HANDLE thread_handle;
 	DWORD thread_id;
 
-	ASSERT(p_start_routine != NULL, "Error: failed creating a thread\nReceived NULL pointer\n");
+	if (p_start_routine == NULL)
+	{
+		printf("Error: failed creating a thread\nReceived NULL pointer\n");
+		return NULL;
+	}
 
 	thread_handle = CreateThread(
 		NULL,                /*  default security attributes */
@@ -319,7 +317,7 @@ static HANDLE create_new_thread(LPTHREAD_START_ROUTINE p_start_routine, LPVOID p
 /// Description: wait for running threads to finish.  
 /// Parameters: 
 ///		[in] handles - handles array of running threads. 
-///		[in] number_of_active_handles - count of runnig threads. 
+///		[in] number_of_active_handles - count of running threads. 
 /// Return: true - thread ended successfully, false - otherwise.
 static bool wait_for_thread(HANDLE* handles, int number_of_active_handles)
 {
@@ -341,7 +339,7 @@ static bool wait_for_thread(HANDLE* handles, int number_of_active_handles)
 			for (int i = 0; i < number_of_active_handles; i++)
 			{
 				TerminateThread(handles[i], TERMINATE_ALL_THREADS_EXITCODE);
-				CloseHandle(handles[i]);
+				// close all handles in the end of main()
 			}
 
 			// Wait a few milliseconds for the process to terminate.
@@ -379,7 +377,7 @@ static void free_queue_items(s_node* queue)
 	}
 }
 
-/// Description: exit protocol - close open filse and free handles and memory allocation.  
+/// Description: exit protocol - close open filse and free handles and memory allocations.  
 /// Parameters: 
 ///		[in] handles - handles array of running threads. 
 ///		[in] number_of_active_handles - count of runnig threads. 
@@ -405,7 +403,6 @@ static HANDLE create_mutex()
 		NULL);	/* unnamed mutex */
 	
 	ASSERT(mutex != NULL, "Error: failed creating mutex: %d\n", GetLastError());
-	
 	return mutex;
 }
 
@@ -419,6 +416,5 @@ static HANDLE create_semaphore(int init_count, int max_count)
 		NULL);		/* name semaphore */
 
 	ASSERT(semaphore != NULL, "Error: failed creating semaphore: %d\n", GetLastError());
-
 	return semaphore;
 }

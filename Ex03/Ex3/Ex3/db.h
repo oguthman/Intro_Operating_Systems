@@ -46,8 +46,6 @@ typedef struct {
 /************************************
 *       API                         *
 ************************************/
-s_virtual* gp_page_table;
-s_pysical* gp_frame_table;
 
 /// Description: initialize memory tables and global clock.  
 /// Parameters: 
@@ -81,25 +79,14 @@ void update_frame_eou(uint32_t page_numbe, uint32_t time_of_use);
 /// Return: true - if frame found anf false otherwise.
 bool try_find_free_frame(uint32_t page_number, uint32_t time_of_use);
 
-/// Description: at the end of the process, clear memory.
+/// Description: at the end of the process, clear memory and free gp_LRU_queue.
 /// Parameters: none.
 /// Return: none.
 void clear_all_frames();
 
-/*!
-******************************************************************************
-\brief
-Initialize func 
-
-\details
-Must be called only once
-
-\param
- [in] counter_val - reset counter value
- [out] out_val    - 
-
-\return none
-*****************************************************************************/
-
+/// Description: print databases tables to the screen.
+/// Parameters: none.
+/// Return: none.
+void db_print_tables();
 
 #endif //__DB_H__

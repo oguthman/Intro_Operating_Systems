@@ -36,8 +36,8 @@ ALL RIGHTS RESERVED
 /************************************
 *      variables                    *
 ************************************/
-//s_virtual *gp_page_table;
-//s_pysical *gp_frame_table;
+s_virtual *gp_page_table;
+s_pysical *gp_frame_table;
 
 static File* gp_output_file;
 static uint32_t g_virtual_memory_size;
@@ -85,6 +85,13 @@ void update_frame_eou(uint32_t page_numbe, uint32_t time_of_use)
 
 bool try_find_free_frame(uint32_t page_number, uint32_t time_of_use)
 {
+	// if 2 or more threads are running with the same page number, update max eou
+	if (is_page_in_frame(page_number))
+	{
+		update_frame_eou(page_number, time_of_use);
+		return true;
+	}
+	
 	// search for frame with valid == 0
 	for (uint32_t frame_number = 0; frame_number < g_physical_memory_size; frame_number++)
 	{
@@ -96,11 +103,12 @@ bool try_find_free_frame(uint32_t page_number, uint32_t time_of_use)
 	}
 	
 	// check if page in frame reached eou
-	int32_t* page_to_clear = NULL;
-	if (check_if_available(&gp_LRU_queue, *gp_clock, page_to_clear))
+	uint32_t page_to_clear;
+	if (queue_lru_pop_available_page(&gp_LRU_queue, *gp_clock, &page_to_clear))
 	{
+		uint32_t frame_to_clear = gp_page_table[page_to_clear].frame_number;
 		clear_frame(page_to_clear);
-		update_tables(page_number, time_of_use, gp_page_table[*page_to_clear].frame_number, true);
+		update_tables(page_number, time_of_use, frame_to_clear, true);
 		return true;
 	}
 	
@@ -117,6 +125,25 @@ void clear_all_frames()
 			clear_frame(gp_frame_table[frame_number].page_number);
 		}
 	}
+	
+	// free gp_LRU_queue
+	while (!queue_lru_is_empty(&gp_LRU_queue))
+		queue_lru_pop(&gp_LRU_queue);
+}
+
+void db_print_tables()
+{
+	printf("Frame Table:\n");
+	for (uint32_t i = 0; i < g_physical_memory_size; i++)
+	{
+		printf("page number {%d}, valid {%d}, eou {%d}\n", gp_frame_table[i].page_number, gp_frame_table[i].valid, gp_frame_table[i].end_of_use);
+	}
+
+	printf("Page Table:\n");
+	for (uint32_t i = 0; i < g_virtual_memory_size; i++)
+	{
+		printf("frame number {%d}, valid {%d}, eou {%d}\n", gp_page_table[i].frame_number, gp_page_table[i].valid, gp_page_table[i].end_of_use);
+	}
 }
 
 /************************************
@@ -127,19 +154,19 @@ static void update_tables(uint32_t page_number, uint32_t time_of_use, uint32_t f
 	// update physical memory
 	gp_frame_table[frame_number].page_number = page_number;
 	gp_frame_table[frame_number].valid = true;
-	gp_frame_table[frame_number].end_of_use = *gp_clock + time_of_use;
+	gp_frame_table[frame_number].end_of_use = max(gp_frame_table[frame_number].end_of_use, *gp_clock + time_of_use);
 
 	// update virtual memory
 	gp_page_table[page_number].frame_number = frame_number;
 	gp_page_table[page_number].valid = true;
-	gp_page_table[page_number].end_of_use = *gp_clock + time_of_use;
+	gp_page_table[page_number].end_of_use = max(gp_page_table[page_number].end_of_use, *gp_clock + time_of_use);
 
 	// add to LRU linked list
-	queue_lru_push(&gp_LRU_queue, page_number, time_of_use);
+	queue_lru_push(&gp_LRU_queue, page_number, gp_page_table[page_number].end_of_use);
 
+	// update output file
 	if (print_to_output) 
 	{
-		// update output file
 		char line[50];
 		sprintf(line, "%d %d %d %s\n", *gp_clock, page_number, frame_number, "P");
 		File_Write(gp_output_file, line, (int)strlen(line));

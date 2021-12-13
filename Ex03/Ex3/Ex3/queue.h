@@ -59,9 +59,30 @@ bool queue_is_empty(s_node** head);
 
 void* queue_pop(s_node** head);
 void queue_push(s_node** head, void* item);	//stack
-
+/// Description: push items to queue by priority - inc_order/dec_order. 
+/// Parameters: 
+///		[in] head - pointer to queue. 
+///		[in] item - stored item. 
+///		[in] priority - weight of the item. 
+///		[in] inc_order - true if inc_order, false if dec_order. 
+/// Return: none.
 void queue_priority_push(s_node** head, void* item, uint32_t priority, bool inc_order);
+
+/// Description: push new items to the end LRU queue. If exits, move item to the end of the queue.  
+/// Parameters: 
+///		[in] head - pointer to queue. 
+///		[in] page_number - stored item. 
+///		[in] time_of_use - stored item. 
+/// Return: none.
 void queue_lru_push(s_node_lru** head, uint32_t page_number, uint32_t time_of_use);
-bool check_if_available(s_node_lru** head, uint32_t time, int32_t* page_to_clear);
+/// Description: search for available page to clear for frame.  
+/// Parameters: 
+///		[in] head - pointer to queue. 
+///		[in] time - global time of the process. 
+///		[in] page_to_clear - pointer to revevant page to clear from frame. 
+/// Return: true if page was found, false otherwise.
+bool queue_lru_pop_available_page(s_node_lru** head, uint32_t time, uint32_t* page_to_clear);
+void* queue_lru_pop(s_node_lru** head);
+bool queue_lru_is_empty(s_node_lru** head);
 
 #endif //__QUEUE_H__
