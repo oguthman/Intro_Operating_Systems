@@ -18,10 +18,11 @@ ALL RIGHTS RESERVED
 /************************************
 *      include                      *
 ************************************/
-#include "..\message_defs.h"
-//
 #include <stdio.h>
 #include <string.h>
+//
+#include "..\shared\message_defs.h"
+#include "..\shared\socket_handle.h"
 
 /************************************
 *      definitions                 *

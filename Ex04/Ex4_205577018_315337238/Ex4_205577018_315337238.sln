@@ -7,9 +7,11 @@ Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "server", "server\server.vcx
 EndProject
 Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "client", "client\client.vcxproj", "{6B3A7A47-C12A-4D66-854D-3E75330F99C6}"
 EndProject
-Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Solution Items", "Solution Items", "{C89C26DB-BCBC-457F-BB7E-0450DA19C26E}"
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "shared", "shared", "{23AE6F6B-D7DE-4053-A5E1-6C5276E8FE60}"
 	ProjectSection(SolutionItems) = preProject
-		message_def.h = message_def.h
+		shared\message_defs.h = shared\message_defs.h
+		shared\socket_handle.c = shared\socket_handle.c
+		shared\socket_handle.h = shared\socket_handle.h
 	EndProjectSection
 EndProject
 Global
