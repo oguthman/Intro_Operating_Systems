@@ -171,29 +171,25 @@ e_transfer_result Socket_Receive(SOCKET socket, e_message_type* p_message_type, 
 	}
 
 	char* message_type_str = strtok(buffer, ":");
-	if (strcmp(message_type_str, buffer) == 0)
-		p_message_type = (e_message_type) strtol(buffer, NULL, 10);
-	else
+	// TODO: Remove
+	printf("recieve: %s\n", message_type_str);
+	p_message_type = strtol(message_type_str, NULL, 10);
+
+	// getting params
+	int num_of_params = 0;
+	message_type_str = strtok(NULL, ";");
+	while (message_type_str != NULL)
 	{
+		num_of_params++;
 		// TODO: Remove
 		printf("recieve: %s\n", message_type_str);
-		p_message_type = (e_message_type)strtol(message_type_str, NULL, 10);
-		
-		// getting params
-		int num_of_params = 0;
-		while (message_type_str != NULL)
-		{
-			num_of_params++;
-			message_type_str = strtok(NULL, ";");
-			// TODO: Remove
-			printf("recieve: %s\n", message_type_str);
 
-			// TODO: free params after done with them (params list & items)
-			params = realloc(params, num_of_params * sizeof(char*));
-			// TODO: check allocation
-			params[num_of_params - 1] = malloc(sizeof(message_type_str));
-			strcpy(params[num_of_params - 1], message_type_str);
-		}
+		// TODO: free params after done with them (params list & items)
+		params = realloc(params, num_of_params * sizeof(char*));
+		params[num_of_params - 1] = malloc(sizeof(message_type_str));
+		strcpy(params[num_of_params - 1], message_type_str);
+
+		message_type_str = strtok(NULL, ";");
 	}
 
 	free(buffer);
