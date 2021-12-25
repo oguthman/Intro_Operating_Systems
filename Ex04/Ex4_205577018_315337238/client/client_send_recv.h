@@ -1,6 +1,6 @@
 /*!
 ******************************************************************************
-\file file_name.h
+\file client_send_recv.h
 \date 20 December 2021
 \author Shahar Dorit Morag & Ofir Guthman
 \project #4
@@ -14,12 +14,15 @@
 ALL RIGHTS RESERVED
 *****************************************************************************/
 
-#ifndef __FILE_NAME_H__
-#define __FILE_NAME_H__
+#ifndef __CLIENT_SEND_RECV_H__
+#define __CLIENT_SEND_RECV_H__
 
 /************************************
 *      include                      *
 ************************************/
+#include <windows.h>
+//
+#include "../shared/socket_handle.h"
 
 /************************************
 *      definitions                 *
@@ -28,26 +31,23 @@ ALL RIGHTS RESERVED
 /************************************
 *       types                       *
 ************************************/
-
+typedef struct {
+	e_message_type message_type;
+	int params_count;
+	char* params[];
+} s_client_message_params;
 
 /************************************
 *       API                         *
 ************************************/
+void client_init_send_recv(SOCKET socket);
 
-/*!
-******************************************************************************
-\brief
-Initialize func 
-
-\details
-Must be called only once
-
-\param
- [in] counter_val - reset counter value
- [out] out_val    - 
-
-\return none
-*****************************************************************************/
+void client_add_transaction(s_client_message_params params);
+DWORD WINAPI client_send_routine(LPVOID lpParam);
 
 
-#endif //__FILE_NAME_H__
+DWORD WINAPI client_receive_routine(LPVOID lpParam);
+
+void client_teardown();
+
+#endif //__CLIENT_SEND_RECV_H__

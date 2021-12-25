@@ -41,6 +41,13 @@ static struct {
 	char* username;
 } gs_inputs;
 
+static struct {
+	e_socket_type type;
+	e_message_type message_type;
+	int params_count;
+	char* params[];
+} gs_send_recieve_params;
+
 /************************************
 *      static functions             *
 ************************************/
@@ -55,24 +62,35 @@ int main(int argc, char* argv[])
 {
 	// parse arguments
 	parse_arguments(argc, argv);
-	
+
+	HANDLE handles[3];
+
 	int answer_to_reconnect = 0;
-	
+
 	do
 	{
 		// connect to server
-		// if succeeded
+		SOCKET socket = Socket_Init(socket_client, gs_inputs.server_ip, gs_inputs.server_port);
+		if (socket != NULL)
+			// if succeeded
 		{
-			printf("Connected to server on <ip>:<port>\n");
-			//break;
+			printf("Connected to server on %s:%s\n", gs_inputs.server_ip, gs_inputs.server_port);
+			// write to log: ("Connected to server on %s:%s\n", gs_inputs.server_ip, gs_inputs.server_port);
+			break;
 		}
 		// if not succeeded
-		printf("Failed connecting to server on <ip>:<port>\nChoose what to do next:\n1. Try to reconnect\n2. Exit\n");
+		printf("Failed connecting to server on %s:%s\n", gs_inputs.server_ip, gs_inputs.server_port);
+		printf("Choose what to do next:\n1.Try to reconnect\n2.Exit\n");
+		// write to log: ("Failed connecting to server on %s:%s\n", gs_inputs.server_ip, gs_inputs.server_port);
 		scanf_s("%d", &answer_to_reconnect);
+		// TODO: fix the function
 		validate_menu_input(&answer_to_reconnect, 1, 2, "Choose what to do next:\n1. Try to reconnect\n2. Exit\n");
 
 	} while (answer_to_reconnect == 1);
-	
+
+	handles[0] = create_new_thread(Socket_Send, gs_send_recieve_params);
+	handles[1] = create_new_thread(Socket_Receive, gs_send_recieve_params);
+	handles[1] = create_new_thread(UI, PARMAS);
 
 }
 
@@ -113,4 +131,31 @@ static void validate_menu_input(int* value, int min_arg, int max_arg, char* mess
 static void clear_buffer()
 {
 	fseek(stdin, 0, SEEK_END);
+}
+
+/// Description: create new thread.  
+/// Parameters: 
+///		[in] p_start_routine - thread function. 
+///		[in] p_thread_parameters - parametes for thread function.
+/// Return: thread_handle - handle for the new thread.
+static HANDLE create_new_thread(LPTHREAD_START_ROUTINE p_function, LPVOID p_thread_parameters)
+{
+	HANDLE thread_handle;
+	DWORD thread_id;
+
+	if (p_function == NULL)
+	{
+		printf("Error: failed creating a thread\nReceived NULL pointer\n");
+		return NULL;
+	}
+
+	thread_handle = CreateThread(
+		NULL,                /*  default security attributes */
+		0,                   /*  use default stack size */
+		p_function,			 /*  thread function */
+		p_thread_parameters, /*  argument to thread function */
+		0,                   /*  use default creation flags */
+		&thread_id);         /*  returns the thread identifier */
+
+	return thread_handle;
 }
