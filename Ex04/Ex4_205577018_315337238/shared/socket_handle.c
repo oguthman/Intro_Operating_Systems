@@ -66,24 +66,24 @@ SOCKET Socket_Init(e_socket_type type, char* ip, uint16_t port)
 
 	// open socket
 	SOCKET main_socket = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
-	// Check for errors to ensure that the socket is a valid socket.
+	// check for errors to ensure that the socket is a valid socket.
 	ASSERT(main_socket != INVALID_SOCKET, wsa_cleanup, main_socket, "Error at socket(): %ld\n", WSAGetLastError());
 	
 	if (type == socket_client)
 	{
-		// Create a sockaddr_in object clientService and set values.
+		// create a sockaddr_in object clientService and set values.
 		SOCKADDR_IN clientService = {
 			.sin_family = AF_INET,
 			.sin_addr.s_addr = inet_addr(ip),			//Setting the IP address to connect to
 			.sin_port = htons(port)						//Setting the port to connect to.
 		};
 		
-		// Try to connect to server
+		// connect - try to connect to server
 		ASSERT((connect(main_socket, (SOCKADDR*)&clientService, sizeof(clientService)) != SOCKET_ERROR), socket_cleanup, main_socket, "Failed to connect to server.\n");
 	}
 	else if (type == socket_server)
 	{
-		// Create a sockaddr_in object and set its values.
+		// create a sockaddr_in object and set its values.
 		ULONG address = inet_addr(ip);
 		ASSERT(address != INADDR_NONE, socket_cleanup, main_socket, "The string \"%s\" cannot be converted into an ip address.\n", ip);
 
@@ -93,6 +93,7 @@ SOCKET Socket_Init(e_socket_type type, char* ip, uint16_t port)
 			.sin_port = htons(port)					//Setting the port to connect to.
 		};
 
+		// bind
 		int bindRes = bind(main_socket, (SOCKADDR*)&service, sizeof(service));
 		ASSERT(bindRes == SOCKET_ERROR, socket_cleanup, main_socket, "bind( ) failed with error %ld\n", WSAGetLastError());
 	}
@@ -188,8 +189,18 @@ e_transfer_result Socket_Receive(SOCKET main_socket, e_message_type* p_message_t
 		printf("recieve: %s\n", message_type_str);
 
 		// TODO: free params after done with them (params list & items)
-		params = realloc(params, (*num_of_params) * sizeof(char*));
-		params[*num_of_params - 1] = malloc(sizeof(message_type_str));
+		char** temp_params = realloc(params, (*num_of_params) * sizeof(char*));
+		if (temp_params == NULL)
+		{
+			free(params);
+			//TODO:EXIT
+			//return transfer_fault
+		}
+		params = temp_params;
+		//ASSERT(params != NULL, socket_cleanup, main_socket, "Error: failed reallocation memory\n");  // TODO: action - cleanup
+		
+		params[*num_of_params - 1] = malloc((strlen(message_type_str) + 1) * sizeof(char));
+		ASSERT(params[*num_of_params - 1] != NULL, socket_cleanup, main_socket, "Error: failed allocation memory\n");  // TODO: fix action
 		strcpy(params[*num_of_params - 1], message_type_str);
 
 		message_type_str = strtok(NULL, ";");
