@@ -44,7 +44,7 @@ typedef void (*receive_callback)(s_client_message_params params);
 /************************************
 *       API                         *
 ************************************/
-// void client_init_send_recv(SOCKET client_socket);
+void client_init_send_recv(SOCKET client_socket);
 void client_bind_callback(receive_callback callback);
 void client_add_transaction(s_client_message_params params);
 DWORD WINAPI client_send_routine(LPVOID lpParam);

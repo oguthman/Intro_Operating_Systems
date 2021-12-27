@@ -17,12 +17,21 @@ ALL RIGHTS RESERVED
 /************************************
 *      include                      *
 ************************************/
+#include <stdio.h>
 #include "client_send_recv.h"
 #include "../shared/queue.h"
 
 /************************************
 *      definitions                 *
 ************************************/
+// TODO: change return (exit)
+#define ASSERT(cond, msg, ...)													\
+	do {																					\
+		if (!(cond)) {																		\
+			printf(msg, __VA_ARGS__);														\
+			return;																			\
+		}																					\
+	} while (0);
 
 /************************************
 *       types                       *
@@ -31,7 +40,7 @@ ALL RIGHTS RESERVED
 /************************************
 *      variables                    *
 ************************************/
-static SOCKET g_socket;
+static SOCKET g_client_socket;
 
 static struct {
 	s_node* transaction_queue;
@@ -53,7 +62,7 @@ static bool wait_for_event(HANDLE event);
 ************************************/
 void client_init_send_recv(SOCKET client_socket)
 {
-	g_socket = client_socket;
+	g_client_socket = client_socket;
 
 	// init sending
 	gs_sending_vars.send_event_handle = create_event_handle(true);
@@ -68,10 +77,11 @@ void client_bind_callback(receive_callback callback)
 	gs_receiving_vars.callback = callback;
 }
 
-
 void client_add_transaction(s_client_message_params params)
 {
 	s_client_message_params* p_params = malloc(sizeof(s_client_message_params));
+	ASSERT(p_params != NULL, "Error: falied allocating memory\n");
+	
 	memcpy(p_params, &params, sizeof(params));
 	queue_push(&gs_sending_vars.transaction_queue, (void*)p_params, false);
 
@@ -94,7 +104,7 @@ DWORD WINAPI client_send_routine(LPVOID lpParam)
 		s_client_message_params* p_params = queue_pop(&gs_sending_vars.transaction_queue);
 		
 		// sending packet through socket
-		e_transfer_result result = Socket_Send(g_socket, p_params->message_type, p_params->params_count, p_params->params);
+		e_transfer_result result = Socket_Send(g_client_socket, p_params->message_type, p_params->params_count, p_params->params);
 		if (result == transfer_failed)
 		{
 			//TODO: NOT HAPPY PATH
@@ -116,7 +126,7 @@ DWORD WINAPI client_receive_routine(LPVOID lpParam)
 		char** params = NULL;
 		uint32_t number_of_params = 0;
 		uint32_t timeout = 10;	//TODO: change
-		e_transfer_result result = Socket_Receive(g_socket, &message_type, params, &number_of_params, timeout);
+		e_transfer_result result = Socket_Receive(g_client_socket, &message_type, params, &number_of_params, timeout);
 
 		//callback - move the info to ui
 		s_client_message_params message_params = { message_type, number_of_params, params };
@@ -126,8 +136,10 @@ DWORD WINAPI client_receive_routine(LPVOID lpParam)
 		// TODO: not happy path
 
 		for (uint32_t i = 0; i < number_of_params; i++) // TODO: maybe change to function
-			free(params[i]); 
-
+		{
+			if (params[i] != NULL) // handle warning
+				free(params[i]);
+		}
 		free(params);
 	}
 }

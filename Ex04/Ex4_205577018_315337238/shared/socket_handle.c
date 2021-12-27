@@ -27,22 +27,13 @@ ALL RIGHTS RESERVED
 /************************************
 *      definitions                 *
 ************************************/
-//#define ASSERT(cond, action, msg, ...)		\
-//		do {								\
-//			if (!(cond)) {					\
-//				printf(msg, __VA_ARGS__);	\
-//				if ((action) != NULL)	{		\
-//					action(socket);	}		\	
-//			}								\
-//		} while (0);
-
 #define ASSERT(cond, action, arg, msg, ...)													\
 	do {																					\
 		if (!(cond)) {																		\
 			printf(msg, __VA_ARGS__);														\
 			if (action != NULL)																\
 				action(arg);																\
-			return INVALID_SOCKET;																	\
+			return INVALID_SOCKET;															\
 		}																					\
 	} while (0);
 

@@ -24,6 +24,7 @@ ALL RIGHTS RESERVED
 //
 #include "..\shared\message_defs.h"
 #include "..\shared\socket_handle.h"
+#include "client_send_recv.h"
 
 /************************************
 *      definitions                 *
@@ -51,6 +52,8 @@ static struct {
 	char* username;
 } gs_inputs;
 
+static SOCKET g_client_socket;
+
 static struct {
 	e_socket_type type;
 	e_message_type message_type;
@@ -64,6 +67,7 @@ static struct {
 static void parse_arguments(int argc, char* argv[]);
 static void validate_menu_input(int* value, int min_arg, int max_arg, char* message);
 static HANDLE create_new_thread(LPTHREAD_START_ROUTINE p_function, LPVOID p_thread_parameters);
+static void data_received_handle(s_client_message_params params);
 
 /************************************
 *       API implementation          *
@@ -73,16 +77,16 @@ int main(int argc, char* argv[])
 	// parse arguments
 	parse_arguments(argc, argv);
 
-	HANDLE handles[3];
+	HANDLE handles[2];
 
 	int answer_to_reconnect = 0;
 
 	do
 	{
 		// connect to server
-		SOCKET client_socket = Socket_Init(socket_client, gs_inputs.server_ip, gs_inputs.server_port);
+		g_client_socket = Socket_Init(socket_client, gs_inputs.server_ip, gs_inputs.server_port);
 		// if succeeded
-		if (client_socket != INVALID_SOCKET)
+		if (g_client_socket != INVALID_SOCKET)
 		{
 			printf("Connected to server on %s:%d\n", gs_inputs.server_ip, gs_inputs.server_port);
 			// write to log: ("Connected to server on %s:%s\n", gs_inputs.server_ip, gs_inputs.server_port);
@@ -98,13 +102,25 @@ int main(int argc, char* argv[])
 
 	} while (answer_to_reconnect == 1);
 
-	//handles[0] = create_new_thread(Socket_Send, gs_send_recieve_params);
-	//// check handle
-	//THREAD_ASSERT(handles[0] != NULL, "Error: failed creating a thread\n");
-	//handles[1] = create_new_thread(Socket_Receive, gs_send_recieve_params);
-	//// check handle
-	//THREAD_ASSERT(handles[1] != NULL, "Error: failed creating a thread\n");
+	
+	// init client send receive module
+	client_init_send_recv(g_client_socket);
+	client_bind_callback(data_received_handle);
 
+	
+	
+	
+	handles[0] = create_new_thread(client_send_routine, NULL);
+	// check handle
+	THREAD_ASSERT(handles[0] != NULL, "Error: failed creating a thread\n");
+	handles[1] = create_new_thread(client_receive_routine, NULL);
+	// check handle
+	THREAD_ASSERT(handles[1] != NULL, "Error: failed creating a thread\n");
+
+
+
+	// on exit
+	client_teardown();
 }
 
 
@@ -170,4 +186,8 @@ static HANDLE create_new_thread(LPTHREAD_START_ROUTINE p_function, LPVOID p_thre
 	return thread_handle;
 }
 
+static void data_received_handle(s_client_message_params params)
+{
+
+}
 
