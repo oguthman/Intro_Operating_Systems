@@ -16,14 +16,15 @@ ALL RIGHTS RESERVED
 
 #ifndef __SOCKET_HANDLE_H__
 #define __SOCKET_HANDLE_H__
-// including win_socket api
-#include <winsock2.h>
-#pragma comment(lib, "ws2_32.lib")
 
 /************************************
 *      include                      *
 ************************************/
 #include <stdint.h>
+//
+// including win_socket api
+#include <winsock2.h>
+#pragma comment(lib, "ws2_32.lib")
 //
 #include "message_defs.h"
 
