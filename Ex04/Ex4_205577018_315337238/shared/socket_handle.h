@@ -16,15 +16,14 @@ ALL RIGHTS RESERVED
 
 #ifndef __SOCKET_HANDLE_H__
 #define __SOCKET_HANDLE_H__
+// including win_socket api
+#include <winsock2.h>
+#pragma comment(lib, "ws2_32.lib")
 
 /************************************
 *      include                      *
 ************************************/
 #include <stdint.h>
-//
-// including win_socket api
-#include <winsock2.h>
-#pragma comment(lib, "ws2_32.lib")
 //
 #include "message_defs.h"
 
@@ -51,7 +50,7 @@ typedef enum {
 ************************************/
 SOCKET Socket_Init(e_socket_type type, char* ip, uint16_t port);
 
-e_transfer_result Socket_Send(SOCKET socket, e_message_type message_type, char* params[]);
+e_transfer_result Socket_Send(SOCKET socket, e_message_type message_type, int params_count, char* params[]);
 
 /// <summary>
 /// 
