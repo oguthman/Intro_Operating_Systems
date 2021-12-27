@@ -139,11 +139,16 @@
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
-    <ClCompile Include="main.c" />
-    <ClCompile Include="template.c" />
+    <ClCompile Include="..\shared\queue.c" />
+    <ClCompile Include="..\shared\socket_handle.c" />
+    <ClCompile Include="client_main.c" />
+    <ClCompile Include="client_send_recv.c" />
   </ItemGroup>
   <ItemGroup>
-    <ClInclude Include="template.h" />
+    <ClInclude Include="..\shared\message_defs.h" />
+    <ClInclude Include="..\shared\queue.h" />
+    <ClInclude Include="..\shared\socket_handle.h" />
+    <ClInclude Include="client_send_recv.h" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">

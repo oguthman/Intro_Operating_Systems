@@ -10,6 +10,8 @@ EndProject
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "shared", "shared", "{23AE6F6B-D7DE-4053-A5E1-6C5276E8FE60}"
 	ProjectSection(SolutionItems) = preProject
 		shared\message_defs.h = shared\message_defs.h
+		shared\queue.c = shared\queue.c
+		shared\queue.h = shared\queue.h
 		shared\socket_handle.c = shared\socket_handle.c
 		shared\socket_handle.h = shared\socket_handle.h
 	EndProjectSection

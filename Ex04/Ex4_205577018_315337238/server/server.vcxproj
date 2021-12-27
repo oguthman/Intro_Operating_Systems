@@ -139,10 +139,13 @@
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
-    <ClCompile Include="main.c" />
+    <ClCompile Include="..\shared\socket_handle.c" />
+    <ClCompile Include="server_main.c" />
     <ClCompile Include="template.c" />
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="..\shared\message_defs.h" />
+    <ClInclude Include="..\shared\socket_handle.h" />
     <ClInclude Include="template.h" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />

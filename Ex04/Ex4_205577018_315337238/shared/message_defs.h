@@ -43,27 +43,13 @@ typedef enum {
 	MESSAGE_TYPE_GAME_ENDED,
 	MESSAGE_TYPE_SERVER_NO_OPPONENTS,
 	MESSAGE_TYPE_GAME_VIEW,
-	MESSAGE_TYPE_SERVER_OPPONENT_QUIT
+	MESSAGE_TYPE_SERVER_OPPONENT_QUIT,
+	//
+	MESSAGE_TYPE_UNKNOWN
 } e_message_type;
 
 /************************************
 *       API                         *
 ************************************/
-
-/*!
-******************************************************************************
-\brief
-Initialize func 
-
-\details
-Must be called only once
-
-\param
- [in] counter_val - reset counter value
- [out] out_val    - 
-
-\return none
-*****************************************************************************/
-
 
 #endif //__MESSAGE_DEFS_H__

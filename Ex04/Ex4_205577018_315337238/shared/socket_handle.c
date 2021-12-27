@@ -155,7 +155,8 @@ e_transfer_result Socket_Send(SOCKET main_socket, e_message_type message_type, i
 	return transfer_result;
 }
 
-e_transfer_result Socket_Receive(SOCKET main_socket, e_message_type* p_message_type, char* params[])
+// TODO: implement timeout
+e_transfer_result Socket_Receive(SOCKET main_socket, e_message_type* p_message_type, char* params[], uint32_t* num_of_params, uint32_t timeout)
 {
 	e_transfer_result transfer_result;
 	// reading buffer length
@@ -187,18 +188,18 @@ e_transfer_result Socket_Receive(SOCKET main_socket, e_message_type* p_message_t
 	*p_message_type = (e_message_type)strtol(message_type_str, NULL, 10);
 
 	// getting params
-	int num_of_params = 0;
+	*num_of_params = 0;
 	message_type_str = strtok(NULL, ";");
 	while (message_type_str != NULL)
 	{
-		num_of_params++;
+		(*num_of_params)++;
 		// TODO: Remove
 		printf("recieve: %s\n", message_type_str);
 
 		// TODO: free params after done with them (params list & items)
-		params = realloc(params, num_of_params * sizeof(char*));
-		params[num_of_params - 1] = malloc(sizeof(message_type_str));
-		strcpy(params[num_of_params - 1], message_type_str);
+		params = realloc(params, (*num_of_params) * sizeof(char*));
+		params[*num_of_params - 1] = malloc(sizeof(message_type_str));
+		strcpy(params[*num_of_params - 1], message_type_str);
 
 		message_type_str = strtok(NULL, ";");
 	}

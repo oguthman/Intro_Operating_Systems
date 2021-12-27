@@ -22,7 +22,7 @@ ALL RIGHTS RESERVED
 #include <stdio.h>
 #include <stdint.h>
 //
-#include "../shared/message_defs.h"
+#include "../shared/socket_handle.h"
 
 /************************************
 *      definitions                 *
@@ -45,41 +45,29 @@ ALL RIGHTS RESERVED
 ************************************/
 int main(int argc, char* argv[])
 {
-	e_message_type p_message_type;
-	char** params = NULL;
-	char* str = "0:shahar";
-	char* buffer = malloc(sizeof(str));
-	strcpy(buffer, str);
-	int message_length = (int)(strlen(buffer) + 1);
-
-	char* message_type_str = strtok(buffer, ":");
-	
-	// TODO: Remove
-	printf("recieve: %s\n", message_type_str);
-	p_message_type = strtol(message_type_str, NULL, 10);
-
-	// getting params
-	int num_of_params = 0;
-	message_type_str = strtok(NULL, ";");
-	while (message_type_str != NULL)
-	{
-		num_of_params++;
-		// TODO: Remove
-		printf("recieve: %s\n", message_type_str);
-
-		// TODO: free params after done with them (params list & items)
-		params = realloc(params, num_of_params * sizeof(char*));
-		params[num_of_params - 1] = malloc(sizeof(message_type_str));
-		strcpy(params[num_of_params - 1], message_type_str);
-
-		message_type_str = strtok(NULL, ";");
-	}
-
-	free(buffer);
-
+	SOCKET server_socket = Socket_Init(socket_server, "127.0.0.1", 8888);
 }
 
 /************************************
 * static implementation             *
 ************************************/
+static uint32_t g_game_counter = 0;
 
+//static void temp_game(int move_opponent, char* username, int last_number_before_boom)
+//{
+//	int move_self, current_move;
+//	if (move_opponent != "boom")
+//	{
+//		current_move = 1 + move_opponent;
+//		if ((current_move % 7) == 0 || ((current_move / 10) % 7) == 0)
+//		{
+//			//current_move = "boom";
+//		}
+//	}
+//
+//	else
+//	{
+//		current_move = last_number_before_boom + 2;
+//	}
+//
+//}

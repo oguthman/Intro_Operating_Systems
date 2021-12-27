@@ -9,22 +9,36 @@
       <UniqueIdentifier>{93995380-89BD-4b04-88EB-625FBE52EBFB}</UniqueIdentifier>
       <Extensions>h;hh;hpp;hxx;h++;hm;inl;inc;ipp;xsd</Extensions>
     </Filter>
-    <Filter Include="Resource Files">
-      <UniqueIdentifier>{67DA6AB6-F800-4c08-8B7A-83BB121AAD01}</UniqueIdentifier>
-      <Extensions>rc;ico;cur;bmp;dlg;rc2;rct;bin;rgs;gif;jpg;jpeg;jpe;resx;tiff;tif;png;wav;mfcribbon-ms</Extensions>
+    <Filter Include="shared">
+      <UniqueIdentifier>{37e32e27-13f8-4aa9-b4a2-c0c64c41e732}</UniqueIdentifier>
     </Filter>
   </ItemGroup>
   <ItemGroup>
-    <ClCompile Include="main.c">
+    <ClCompile Include="client_main.c">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="template.c">
+    <ClCompile Include="client_send_recv.c">
       <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="..\shared\queue.c">
+      <Filter>shared</Filter>
+    </ClCompile>
+    <ClCompile Include="..\shared\socket_handle.c">
+      <Filter>shared</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>
-    <ClInclude Include="template.h">
+    <ClInclude Include="client_send_recv.h">
       <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="..\shared\message_defs.h">
+      <Filter>shared</Filter>
+    </ClInclude>
+    <ClInclude Include="..\shared\queue.h">
+      <Filter>shared</Filter>
+    </ClInclude>
+    <ClInclude Include="..\shared\socket_handle.h">
+      <Filter>shared</Filter>
     </ClInclude>
   </ItemGroup>
 </Project>

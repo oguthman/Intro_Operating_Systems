@@ -16,15 +16,15 @@ ALL RIGHTS RESERVED
 
 #ifndef __SOCKET_HANDLE_H__
 #define __SOCKET_HANDLE_H__
+// including win_socket api
+#include <winsock2.h>
+#pragma comment(lib, "ws2_32.lib")
+
 
 /************************************
 *      include                      *
 ************************************/
 #include <stdint.h>
-//
-// including win_socket api
-#include <winsock2.h>
-#pragma comment(lib, "ws2_32.lib")
 //
 #include "message_defs.h"
 
@@ -41,9 +41,9 @@ typedef enum {
 } e_socket_type;
 
 typedef enum { 
+	transfer_succeeded,
 	transfer_failed,
-	transfer_disconnected,
-	transfer_succeeded
+	transfer_disconnected
 } e_transfer_result;
 
 /************************************
@@ -60,7 +60,8 @@ e_transfer_result Socket_Send(SOCKET socket, e_message_type message_type, int pa
 /// <param name="p_message_type"></param>
 /// <param name="params">return allocated list of param, need to free them outside</param>
 /// <returns></returns>
-e_transfer_result Socket_Receive(SOCKET socket, e_message_type* p_message_type, char* params[]);
+e_transfer_result Socket_Receive(SOCKET main_socket, e_message_type* p_message_type, char* params[], uint32_t* num_of_params, uint32_t timeout);
+
 
 void Socket_TearDown(SOCKET socket);
 

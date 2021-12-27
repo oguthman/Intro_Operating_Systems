@@ -39,7 +39,7 @@ static struct {
 } gs_sending_vars;
 
 static struct {
-	int i; //temp
+	receive_callback callback;
 } gs_receiving_vars;
 
 /************************************
@@ -51,17 +51,23 @@ static bool wait_for_event(HANDLE event);
 /************************************
 *       API implementation          *
 ************************************/
-void client_init_send_recv(SOCKET socket)
+void client_init_send_recv(SOCKET client_socket)
 {
-	g_socket = socket;
+	g_socket = client_socket;
 
 	// init sending
 	gs_sending_vars.send_event_handle = create_event_handle(true);
 	gs_sending_vars.transaction_queue = NULL;
 
 	// init receiving
-
+	gs_receiving_vars.callback = NULL;
 }
+
+void client_bind_callback(receive_callback callback)
+{
+	gs_receiving_vars.callback = callback;
+}
+
 
 void client_add_transaction(s_client_message_params params)
 {
@@ -105,8 +111,24 @@ DWORD WINAPI client_receive_routine(LPVOID lpParam)
 	while (1)
 	{
 		// wait to receive new transaction
+		// happy path
+		e_message_type message_type = MESSAGE_TYPE_UNKNOWN;
+		char** params = NULL;
+		uint32_t number_of_params = 0;
+		uint32_t timeout = 10;	//TODO: change
+		e_transfer_result result = Socket_Receive(g_socket, &message_type, params, &number_of_params, timeout);
 
-		e_transfer_result result = Socket_Receive(g_socket, e_message_type * p_message_type, char* params[])
+		//callback - move the info to ui
+		s_client_message_params message_params = { message_type, number_of_params, params };
+		if (gs_receiving_vars.callback != NULL)
+			gs_receiving_vars.callback(message_params);
+
+		// TODO: not happy path
+
+		for (uint32_t i = 0; i < number_of_params; i++) // TODO: maybe change to function
+			free(params[i]); 
+
+		free(params);
 	}
 }
 
