@@ -16,16 +16,18 @@ ALL RIGHTS RESERVED
 
 #ifndef __SOCKET_HANDLE_H__
 #define __SOCKET_HANDLE_H__
-// including win_socket api
-#include <winsock2.h>
-#pragma comment(lib, "ws2_32.lib")
+
 
 
 /************************************
 *      include                      *
 ************************************/
+#include <winsock2.h>
+#pragma comment(lib, "ws2_32.lib")
+
 #include <stdint.h>
-//
+#include <stdbool.h>
+
 #include "message_defs.h"
 
 /************************************
@@ -63,6 +65,6 @@ e_transfer_result Socket_Send(SOCKET socket, e_message_type message_type, int pa
 e_transfer_result Socket_Receive(SOCKET main_socket, e_message_type* p_message_type, char* params[], uint32_t* num_of_params, uint32_t timeout);
 
 
-void Socket_TearDown(SOCKET socket);
+void Socket_TearDown(SOCKET socket, bool socket_only);
 
 #endif //__SOCKET_HANDLE_H__

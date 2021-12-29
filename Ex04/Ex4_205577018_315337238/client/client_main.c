@@ -25,10 +25,20 @@ ALL RIGHTS RESERVED
 #include "..\shared\message_defs.h"
 #include "..\shared\socket_handle.h"
 #include "client_send_recv.h"
+#include "..\shared\threads.h"
 
 /************************************
 *      definitions                 *
 ************************************/
+#define ASSERT(cond, msg, ...)														\
+	do {																			\
+		if (!(cond)) {																\
+			printf("Assertion failed at file %s line %d: \n", __FILE__, __LINE__);	\
+			printf(msg, __VA_ARGS__);												\
+			exit (1);																\
+		}																			\
+	} while (0);
+
 // TODO: check return/exit condition
 #define THREAD_ASSERT(cond, msg, ...)														\
 	do {																					\
@@ -66,7 +76,6 @@ static struct {
 ************************************/
 static void parse_arguments(int argc, char* argv[]);
 static void validate_menu_input(int* value, int min_arg, int max_arg, char* message);
-static HANDLE create_new_thread(LPTHREAD_START_ROUTINE p_function, LPVOID p_thread_parameters);
 static void data_received_handle(s_client_message_params params);
 
 /************************************
@@ -107,17 +116,17 @@ int main(int argc, char* argv[])
 	client_init_send_recv(g_client_socket);
 	client_bind_callback(data_received_handle);
 
-	
-	
-	
 	handles[0] = create_new_thread(client_send_routine, NULL);
-	// check handle
 	THREAD_ASSERT(handles[0] != NULL, "Error: failed creating a thread\n");
+	
 	handles[1] = create_new_thread(client_receive_routine, NULL);
-	// check handle
 	THREAD_ASSERT(handles[1] != NULL, "Error: failed creating a thread\n");
 
+	// temp
+	WaitForMultipleObjects(2, handles, false, INFINITE);
 
+	CloseHandle(handles[0]);
+	CloseHandle(handles[1]);
 
 	// on exit
 	client_teardown();
@@ -133,16 +142,14 @@ int main(int argc, char* argv[])
 ///		[in] argc - number of arguments. 
 ///		[in] argv - arguments list. 
 /// Return: none.
-static void parse_arguments(int argc, char* argv[])
+static void parse_arguments(int argc, char* argv[]) // TODO: add username
 {
-	//// check if there are enough arguments
-	//ASSERT(argc == 4, "Error: not enough arguments.\n");
+	// check if there are enough arguments
+	ASSERT(argc == 3, "Error: not enough arguments.\n");
 
-	//// parse arguments
-	//gs_argument_inputs.virtual_memory_size = 1 << (strtol(argv[1], NULL, 10) - PAGE_SIZE);
-	//gs_argument_inputs.physical_memory_size = 1 << (strtol(argv[2], NULL, 10) - PAGE_SIZE);
-	//gs_argument_inputs.input_file = File_Open(argv[3], "r");
-	//ASSERT(gs_argument_inputs.input_file != NULL, "Error: Can't open input file\n");
+	// parse arguments
+	gs_inputs.server_ip = argv[1];
+	gs_inputs.server_port = strtol(argv[2], NULL, 10);
 }
 
 // TODO: fix the string as an input
@@ -159,35 +166,8 @@ static void validate_menu_input(int* value, int min_arg, int max_arg, char* mess
 	}
 }
 
-/// Description: create new thread.  
-/// Parameters: 
-///		[in] p_start_routine - thread function. 
-///		[in] p_thread_parameters - parametes for thread function.
-/// Return: thread_handle - handle for the new thread.
-static HANDLE create_new_thread(LPTHREAD_START_ROUTINE p_function, LPVOID p_thread_parameters)
-{
-	HANDLE thread_handle;
-	DWORD thread_id;
-
-	if (p_function == NULL)
-	{
-		printf("Error: failed creating a thread\nReceived NULL pointer\n");
-		return NULL;
-	}
-
-	thread_handle = CreateThread(
-		NULL,                /*  default security attributes */
-		0,                   /*  use default stack size */
-		p_function,			 /*  thread function */
-		p_thread_parameters, /*  argument to thread function */
-		0,                   /*  use default creation flags */
-		&thread_id);         /*  returns the thread identifier */
-
-	return thread_handle;
-}
-
 static void data_received_handle(s_client_message_params params)
 {
-
+	printf("Client: message received '[%d] %s'", params.message_type, get_message_str(params.message_type));
 }
 

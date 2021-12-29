@@ -1,6 +1,6 @@
 /*!
 ******************************************************************************
-\file message_defs.h
+\file threads.h
 \date 20 December 2021
 \author Shahar Dorit Morag & Ofir Guthman
 \project #4
@@ -14,12 +14,14 @@
 ALL RIGHTS RESERVED
 *****************************************************************************/
 
-#ifndef __MESSAGE_DEFS_H__
-#define __MESSAGE_DEFS_H__
+#ifndef __THREADS_H__
+#define __THREADS_H__
 
 /************************************
 *      include                      *
 ************************************/
+#include <winsock2.h>
+#pragma comment(lib, "ws2_32.lib")
 
 /************************************
 *      definitions                 *
@@ -28,36 +30,18 @@ ALL RIGHTS RESERVED
 /************************************
 *       types                       *
 ************************************/
-typedef enum {
-	// client
-	MESSAGE_TYPE_CLIENT_REQUEST,
-	MESSAGE_TYPE_CLIENT_VERSUS,
-	MESSAGE_TYPE_CLIENT_PLAYER_MOVE,
-	MESSAGE_TYPE_CLIENT_DISCONNECT,
-	
-	// server
-	MESSAGE_TYPE_SERVER_APPROVED,
-	MESSAGE_TYPE_SERVER_DENIED,
-	MESSAGE_TYPE_SERVER_MAIN_MENU,
-	MESSAGE_TYPE_GAME_STARTED,
-	MESSAGE_TYPE_TURN_SWITCH,
-	MESSAGE_TYPE_SERVER_MOVE_REQUEST,
-	MESSAGE_TYPE_GAME_ENDED,
-	MESSAGE_TYPE_SERVER_NO_OPPONENTS,
-	MESSAGE_TYPE_GAME_VIEW,
-	MESSAGE_TYPE_SERVER_OPPONENT_QUIT,
 
-	// custom
-	MESSAGE_TYPE_UNKNOWN
-} e_message_type;
 
 /************************************
 *       API                         *
 ************************************/
-char* get_message_str(e_message_type message_type);
+/// Description: create new thread.  
+/// Parameters: 
+///		[in] p_start_routine - thread function. 
+///		[in] p_thread_parameters - parametes for thread function.
+/// Return: thread_handle - handle for the new thread.
+HANDLE create_new_thread(LPTHREAD_START_ROUTINE p_function, LPVOID p_thread_parameters);
 
 
 
-
-
-#endif //__MESSAGE_DEFS_H__
+#endif //__THREADS_H__

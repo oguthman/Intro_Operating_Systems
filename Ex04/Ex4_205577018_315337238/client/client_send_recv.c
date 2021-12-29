@@ -56,6 +56,7 @@ static struct {
 ************************************/
 static HANDLE create_event_handle(bool manual_reset);
 static bool wait_for_event(HANDLE event);
+static void free_params_array(char* params[], uint32_t number_of_params);
 
 /************************************
 *       API implementation          *
@@ -128,6 +129,13 @@ DWORD WINAPI client_receive_routine(LPVOID lpParam)
 		uint32_t timeout = 10;	//TODO: change
 		e_transfer_result result = Socket_Receive(g_client_socket, &message_type, params, &number_of_params, timeout);
 
+		if (result == transfer_disconnected)
+		{
+			// breaking the loop
+			free_params_array(params, number_of_params);
+			break;
+		}
+
 		//callback - move the info to ui
 		s_client_message_params message_params = { message_type, number_of_params, params };
 		if (gs_receiving_vars.callback != NULL)
@@ -135,12 +143,7 @@ DWORD WINAPI client_receive_routine(LPVOID lpParam)
 
 		// TODO: not happy path
 
-		for (uint32_t i = 0; i < number_of_params; i++) // TODO: maybe change to function
-		{
-			if (params[i] != NULL) // handle warning
-				free(params[i]);
-		}
-		free(params);
+		free_params_array(params, number_of_params);
 	}
 }
 
@@ -184,4 +187,16 @@ static bool wait_for_event(HANDLE event)
 	}
 
 	return true;
+}
+
+static void free_params_array(char* params[], uint32_t number_of_params)
+{
+	for (uint32_t i = 0; i < number_of_params; i++) // TODO: maybe change to function
+	{
+		if (params[i] != NULL) // handle warning
+			free(params[i]);
+	}
+	if (params != NULL)
+		free(params);
+
 }

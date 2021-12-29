@@ -23,6 +23,12 @@
     <ClCompile Include="..\shared\socket_handle.c">
       <Filter>shared</Filter>
     </ClCompile>
+    <ClCompile Include="..\shared\threads.c">
+      <Filter>shared</Filter>
+    </ClCompile>
+    <ClCompile Include="..\shared\message_defs.c">
+      <Filter>shared</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="template.h">
@@ -32,6 +38,9 @@
       <Filter>shared</Filter>
     </ClInclude>
     <ClInclude Include="..\shared\socket_handle.h">
+      <Filter>shared</Filter>
+    </ClInclude>
+    <ClInclude Include="..\shared\threads.h">
       <Filter>shared</Filter>
     </ClInclude>
   </ItemGroup>

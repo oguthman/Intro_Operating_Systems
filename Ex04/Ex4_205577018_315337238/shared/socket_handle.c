@@ -32,7 +32,7 @@ ALL RIGHTS RESERVED
 		if (!(cond)) {																		\
 			printf(msg, __VA_ARGS__);														\
 			if (action != NULL)																\
-				action(arg);																\
+				action(arg, false);															\
 			return INVALID_SOCKET;															\
 		}																					\
 	} while (0);
@@ -48,8 +48,8 @@ ALL RIGHTS RESERVED
 /************************************
 *      static functions             *
 ************************************/
-static void wsa_cleanup(SOCKET socket);
-static void socket_cleanup(SOCKET socket);
+static void wsa_cleanup(SOCKET socket, bool socket_only);
+static void socket_cleanup(SOCKET socket, bool socket_only);
 static e_transfer_result send_buffer(SOCKET socket, const char* buffer, uint32_t bytes_to_send);
 static e_transfer_result receive_buffer(SOCKET socket, char* buffer, uint32_t bytes_to_receive);
 
@@ -95,7 +95,7 @@ SOCKET Socket_Init(e_socket_type type, char* ip, uint16_t port)
 
 		// bind
 		int bindRes = bind(main_socket, (SOCKADDR*)&service, sizeof(service));
-		ASSERT(bindRes == SOCKET_ERROR, socket_cleanup, main_socket, "bind( ) failed with error %ld\n", WSAGetLastError());
+		ASSERT(bindRes != SOCKET_ERROR, socket_cleanup, main_socket, "bind( ) failed with error %ld\n", WSAGetLastError());
 	}
 
 	return main_socket;
@@ -210,25 +210,26 @@ e_transfer_result Socket_Receive(SOCKET main_socket, e_message_type* p_message_t
 	return transfer_result;
 }
 
-void Socket_TearDown(SOCKET main_socket)
+void Socket_TearDown(SOCKET main_socket, bool socket_only)
 {
-	socket_cleanup(main_socket);
+	socket_cleanup(main_socket, socket_only);
 }
 
 /************************************
 * static implementation             *
 ************************************/
-static void wsa_cleanup(SOCKET main_socket)		// entering socket just for compilation reasons (ASSERT)
+static void wsa_cleanup(SOCKET main_socket, bool socket_only)		// entering socket just for compilation reasons (ASSERT) & socket_only
 {
 	if (WSACleanup() == SOCKET_ERROR)
 		printf("Failed to close Winsocket, error %ld.\n", WSAGetLastError());
 }
 
-static void socket_cleanup(SOCKET main_socket)
+static void socket_cleanup(SOCKET main_socket, bool socket_only)
 {
 	if (closesocket(main_socket) == SOCKET_ERROR)
 		printf("Failed to close MainSocket, error %ld. Ending program\n", WSAGetLastError());
-	wsa_cleanup(main_socket);
+	if(!socket_only) 
+		wsa_cleanup(main_socket, false);
 }
 
 static e_transfer_result send_buffer(SOCKET main_socket, const char* buffer, uint32_t bytes_to_send)

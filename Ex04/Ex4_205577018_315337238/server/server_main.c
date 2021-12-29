@@ -24,6 +24,7 @@ ALL RIGHTS RESERVED
 #include <stdbool.h>
 //
 #include "../shared/socket_handle.h"
+#include "../shared/threads.h"
 
 /************************************
 *      definitions                 *
@@ -37,7 +38,18 @@ ALL RIGHTS RESERVED
 		}																			\
 	} while (0);
 
+// TODO: check return/exit condition
+#define THREAD_ASSERT(cond, msg, ...)														\
+	do {																					\
+		if (!(cond)) {																		\
+			printf("Thread Assertion failed at file %s line %d: \n", __FILE__, __LINE__);	\
+			printf(msg, __VA_ARGS__);														\
+			return 1;																		\
+		}																					\
+	} while (0);
+
 #define SERVER_IP "127.0.0.1"
+#define NUMBER_OF_ACTIVE_CONNECTIONS	2
 
 /************************************
 *       types                       *
@@ -52,6 +64,7 @@ static uint16_t g_port;
 *      static functions             *
 ************************************/
 static void parse_arguments(int argc, char* argv[]);
+static DWORD WINAPI client_thread_routine(LPVOID lpParam);
 
 /************************************
 *       API implementation          *
@@ -68,11 +81,46 @@ int main(int argc, char* argv[])
 	ASSERT(listen(server_socket, SOMAXCONN) != SOCKET_ERROR, "Error: failed listening on socket %ld\n", WSAGetLastError());		//TODO: action - socket cleanup Socket_TearDown()
 
 	// accept or decline. create new thread for each client. TODO: WHILE LOOP on number_of_clients_connected
-	SOCKET accept_socket = accept(server_socket, NULL, NULL);
-	ASSERT(accept_socket != INVALID_SOCKET, "Error: server can't open socket for client\n");		//TODO: exit?
-	number_of_clients_connected++;
+	SOCKET sockets[NUMBER_OF_ACTIVE_CONNECTIONS];
+	HANDLE handles[NUMBER_OF_ACTIVE_CONNECTIONS];
+	
+	while (1)
+	{
+		SOCKET accept_socket = accept(server_socket, NULL, NULL);
+		ASSERT(accept_socket != INVALID_SOCKET, "Error: server can't open socket for client\n");		//TODO: exit?
+		// TODO: remove
+		printf("Client has connected\n");
 
-	//if number_of_clients_connected ==2, decline new client by connecting and sending decline message
+		number_of_clients_connected++;
+		if (true) //if (number_of_clients_connected > 2)
+		{
+			// TODO: remove
+			printf("Rejecting client\n");
+			// send access denied to client
+			Socket_Send(accept_socket, MESSAGE_TYPE_SERVER_DENIED, 0, NULL);
+			// reject client
+			Socket_TearDown(accept_socket, true);
+
+			number_of_clients_connected--;
+			continue;
+		}
+
+		if (number_of_clients_connected == 1) //TODO: check importance of players order in handles
+		{
+			// first player
+			sockets[0] = accept_socket;
+			handles[0] = create_new_thread(client_thread_routine, NULL);
+			THREAD_ASSERT(handles[0] != NULL, "Error: failed creating a thread\n");
+		}
+		else
+		{
+			// second player
+			sockets[1] = accept_socket;
+			handles[1] = create_new_thread(client_thread_routine, NULL);
+			THREAD_ASSERT(handles[1] != NULL, "Error: failed creating a thread\n");
+		}
+	}
+
 
 }
 
@@ -91,6 +139,9 @@ static void parse_arguments(int argc, char* argv[])
 	g_port = strtol(argv[1], NULL, 10);
 }
 
+static DWORD WINAPI client_thread_routine(LPVOID lpParam)
+{
+}
 
 static uint32_t g_game_counter = 0;
 
@@ -122,7 +173,5 @@ static bool temp_game_logic(char** move_self)
 		if (number == correct_move) return true;
 	}
 	return false;
-
-
 
 }
