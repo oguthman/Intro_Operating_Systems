@@ -81,11 +81,18 @@ static void data_received_handle(s_client_message_params params);
 /************************************
 *       API implementation          *
 ************************************/
+// TODO: CHECK FREE IN GENERAL(SOCKETS AND ALLOCATIONS)
+
 int main(int argc, char* argv[])
 {
 	// parse arguments
 	parse_arguments(argc, argv);
-
+	
+	// init modules
+	// init client send receive module
+	client_init_send_recv(g_client_socket);
+	client_bind_callback(data_received_handle);
+		
 	HANDLE handles[2];
 
 	int answer_to_reconnect = 0;
@@ -99,6 +106,11 @@ int main(int argc, char* argv[])
 		{
 			printf("Connected to server on %s:%d\n", gs_inputs.server_ip, gs_inputs.server_port);
 			// write to log: ("Connected to server on %s:%s\n", gs_inputs.server_ip, gs_inputs.server_port);
+			// send my name to the server
+			char* params[] = { gs_inputs.username };
+			s_client_message_params message_params = { MESSAGE_TYPE_CLIENT_REQUEST, 1, params };
+			client_add_transaction(message_params);
+
 			break;
 		}
 		// if not succeeded
@@ -112,10 +124,6 @@ int main(int argc, char* argv[])
 	} while (answer_to_reconnect == 1);
 
 	
-	// init client send receive module
-	client_init_send_recv(g_client_socket);
-	client_bind_callback(data_received_handle);
-
 	handles[0] = create_new_thread(client_send_routine, NULL);
 	THREAD_ASSERT(handles[0] != NULL, "Error: failed creating a thread\n");
 	
@@ -142,14 +150,15 @@ int main(int argc, char* argv[])
 ///		[in] argc - number of arguments. 
 ///		[in] argv - arguments list. 
 /// Return: none.
-static void parse_arguments(int argc, char* argv[]) // TODO: add username
+static void parse_arguments(int argc, char* argv[])
 {
 	// check if there are enough arguments
-	ASSERT(argc == 3, "Error: not enough arguments.\n");
+	ASSERT(argc == 4, "Error: not enough arguments.\n");
 
 	// parse arguments
 	gs_inputs.server_ip = argv[1];
-	gs_inputs.server_port = strtol(argv[2], NULL, 10);
+	gs_inputs.server_port = (uint16_t)strtol(argv[2], NULL, 10);
+	gs_inputs.username = argv[3];
 }
 
 // TODO: fix the string as an input
@@ -166,8 +175,52 @@ static void validate_menu_input(int* value, int min_arg, int max_arg, char* mess
 	}
 }
 
-static void data_received_handle(s_client_message_params params)
+static void data_received_handle(s_client_message_params message_params)
 {
-	printf("Client: message received '[%d] %s'", params.message_type, get_message_str(params.message_type));
+	// TODO: change according to instructions
+	printf("Client: message received '[%d] %s'", message_params.message_type, get_message_str(message_params.message_type));
+	
+	// print to console
+	switch (message_params.message_type)
+	{
+		// case MESSAGE_TYPE_SERVER_APPROVED:
+		case MESSAGE_TYPE_SERVER_DENIED:
+			printf("Server on %s:%d denied the connection request.\n", gs_inputs.server_ip, gs_inputs.server_port);
+			break;
+		case MESSAGE_TYPE_SERVER_MAIN_MENU:
+		case MESSAGE_TYPE_SERVER_NO_OPPONENTS:
+			printf("Choose what to do next:\n1. Play against another client\n2. Quit\n");
+			break;
+		case MESSAGE_TYPE_GAME_STARTED:
+			printf("Game is on!\n");
+			break;
+		case MESSAGE_TYPE_TURN_SWITCH:
+			// TODO: maybe shouhld check the num_of_params
+			if (!strcmp(message_params.params[0], gs_inputs.username))
+				printf("Your turn!\n");
+			else
+				printf("%s's turn!\n", message_params.params[0]);
+			break;
+		case MESSAGE_TYPE_SERVER_MOVE_REQUEST:
+			printf("Enter the next number or boom:\n");
+			break;
+		case MESSAGE_TYPE_GAME_ENDED:
+			printf("%s won!\n", message_params.params[0]);
+			break;
+		case MESSAGE_TYPE_GAME_VIEW:
+			// TODO: maybe shouhld check the num_of_params
+			printf("%s move was %s\n", message_params.params[0], message_params.params[1]);
+			if (!strcmp(message_params.params[2], "END"))
+				printf("END\n");
+			else
+			{
+				//TODO: CHECK IF NEEDED TO RETURN PRINT
+				printf("CONT\n");
+			}
+			break;
+		case MESSAGE_TYPE_SERVER_OPPONENT_QUIT:
+			printf("Opponent quit.\n");	//TODO: MAKE SURE THE PRINT IS CORRECT "Opponent quit .\n"
+			break;
+	}
 }
 

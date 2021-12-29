@@ -114,7 +114,7 @@ DWORD WINAPI client_send_routine(LPVOID lpParam)
 		free(p_params);
 	}
 
-	return 0; //TODO: temp - chEck if exit protocol needed
+	return 0; //TODO: temp - check if exit protocol needed
 }
 
 DWORD WINAPI client_receive_routine(LPVOID lpParam)
