@@ -56,7 +56,6 @@ static struct {
 ************************************/
 static HANDLE create_event_handle(bool manual_reset);
 static bool wait_for_event(HANDLE event);
-static void free_params_array(char* params[], uint32_t number_of_params);
 
 /************************************
 *       API implementation          *
@@ -132,7 +131,7 @@ DWORD WINAPI client_receive_routine(LPVOID lpParam)
 		if (result == transfer_disconnected)
 		{
 			// breaking the loop
-			free_params_array(params, number_of_params);
+			Socket_FreeParamsArray(params, number_of_params);
 			break;
 		}
 
@@ -143,7 +142,7 @@ DWORD WINAPI client_receive_routine(LPVOID lpParam)
 
 		// TODO: not happy path
 
-		free_params_array(params, number_of_params);
+		Socket_FreeParamsArray(params, number_of_params);
 	}
 }
 
@@ -187,16 +186,4 @@ static bool wait_for_event(HANDLE event)
 	}
 
 	return true;
-}
-
-static void free_params_array(char* params[], uint32_t number_of_params)
-{
-	for (uint32_t i = 0; i < number_of_params; i++) // TODO: maybe change to function
-	{
-		if (params[i] != NULL) // handle warning
-			free(params[i]);
-	}
-	if (params != NULL)
-		free(params);
-
 }

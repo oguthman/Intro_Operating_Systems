@@ -64,7 +64,8 @@ e_transfer_result Socket_Send(SOCKET socket, e_message_type message_type, int pa
 /// <returns></returns>
 e_transfer_result Socket_Receive(SOCKET main_socket, e_message_type* p_message_type, char* params[], uint32_t* num_of_params, uint32_t timeout);
 
-
 void Socket_TearDown(SOCKET socket, bool socket_only);
+
+void Socket_FreeParamsArray(char* params[], uint32_t number_of_params);
 
 #endif //__SOCKET_HANDLE_H__

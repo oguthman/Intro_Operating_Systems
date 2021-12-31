@@ -73,7 +73,8 @@ typedef struct {
 static uint16_t g_port;
 static HANDLE g_barrier_mutex;//SIGNALED
 static HANDLE g_barrier_semaphore;
-static uint8_t g_barrier_counter;
+static uint8_t g_start_game_barrier_counter;
+static uint8_t g_game_barrier_counter;
 
 static struct {
 	bool game_is_on;
@@ -82,6 +83,7 @@ static struct {
 	char second_player_name[USERNAME_MAX_LENGTH + 1];
 	int8_t player_turn;
 	char* player_move;
+	char* winner;
 	HANDLE mutex_game_update;
 	HANDLE mutex_game_routine;
 } gs_game_data;
@@ -93,7 +95,7 @@ static void parse_arguments(int argc, char* argv[]);
 static void server_init();
 static DWORD WINAPI client_thread_routine(LPVOID lpParam);
 static bool check_received_message(SOCKET client_socket, e_message_type expected_message_type, s_message_params* received_message_params, uint32_t timeout);
-static bool start_game_barrier();
+static bool game_barrier(uint8_t* counter);
 static bool update_game_data(s_client_data* client_data);
 static bool game_routine(s_client_data* client_data);
 static bool game_logic(char* user_move);
@@ -104,23 +106,19 @@ static bool game_logic(char* user_move);
 int main(int argc, char* argv[])
 {
 	parse_arguments(argc, argv);
-
 	server_init();
 
 	SOCKET server_socket = Socket_Init(socket_server, SERVER_IP, g_port);
 	ASSERT(server_socket != INVALID_SOCKET, "Error: server can't open socket\n");		//TODO: exit?
 
-	// listen on socket
-	uint8_t number_of_clients_connected = 0;
-	ASSERT(listen(server_socket, SOMAXCONN) != SOCKET_ERROR, "Error: failed listening on socket %ld\n", WSAGetLastError());		//TODO: action - socket cleanup Socket_TearDown()
-
 	// accept or decline. create new thread for each client. TODO: WHILE LOOP on number_of_clients_connected
+	uint8_t number_of_clients_connected = 0;
 	s_client_data client_data_array[NUMBER_OF_ACTIVE_CONNECTIONS];
 	HANDLE handles[NUMBER_OF_ACTIVE_CONNECTIONS];
 	
 	while (1)
 	{
-		// accept new clients (waiting for clients to connect)
+		// accept new clients (wait for clients to connect)
 		SOCKET accept_socket = accept(server_socket, NULL, NULL);
 		ASSERT(accept_socket != INVALID_SOCKET, "Error: server can't open socket for client\n");		//TODO: exit?
 		// TODO: remove
@@ -174,6 +172,8 @@ int main(int argc, char* argv[])
 			THREAD_ASSERT(handles[1] != NULL, "Error: failed creating a thread\n");
 		}
 	}
+
+	// free all allocation & close handles (Threads, Mutex, Semaphores & Events)
 }
 
 /************************************
@@ -199,12 +199,13 @@ static void server_init()
 	g_barrier_semaphore = create_semaphore(0, NUMBER_OF_ACTIVE_CONNECTIONS);
 	ASSERT(g_barrier_semaphore != NULL, "Error: failed creating semaphore. Exiting\n");
 
-	g_barrier_counter = 0;
+	g_start_game_barrier_counter = 0;
+	g_game_barrier_counter = 0;
 
 	gs_game_data.mutex_game_update = create_mutex(true);
 	ASSERT(gs_game_data.mutex_game_update != NULL, "Error: failed creating mutex. Exiting\n");
 
-	gs_game_data.mutex_game_routine = create_mutex(true);
+	gs_game_data.mutex_game_routine = create_mutex(false);
 	ASSERT(gs_game_data.mutex_game_routine != NULL, "Error: failed creating mutex. Exiting\n");
 
 	gs_game_data.player_turn = -1;
@@ -215,6 +216,7 @@ static DWORD WINAPI client_thread_routine(LPVOID lpParam)
 {
 	// parsing inputs
 	s_client_data* client_data = (s_client_data*)lpParam;
+	s_message_params received_message_params = { .params = NULL, .params_count = 0 };
 
 	while (true)
 	{
@@ -222,7 +224,6 @@ static DWORD WINAPI client_thread_routine(LPVOID lpParam)
 		Socket_Send(client_data->client_socket, MESSAGE_TYPE_SERVER_MAIN_MENU, 0, NULL);
 		
 		// wait for CLIENT_VERSUS
-		s_message_params received_message_params;
 		if (!check_received_message(client_data->client_socket, MESSAGE_TYPE_CLIENT_VERSUS, &received_message_params, -1)) // TODO: Fix timeout
 		{
 			// client chose to disconnect from server
@@ -241,7 +242,7 @@ static DWORD WINAPI client_thread_routine(LPVOID lpParam)
 		}
 
 		// wait for another player to connect
-		if (!start_game_barrier())
+		if (!game_barrier(&g_start_game_barrier_counter))
 		{
 			// send SERVER_NO_OPPONENTS
 			Socket_Send(client_data->client_socket, MESSAGE_TYPE_SERVER_NO_OPPONENTS, 0, NULL);
@@ -258,15 +259,22 @@ static DWORD WINAPI client_thread_routine(LPVOID lpParam)
 		// game routine
 		if (!game_routine(client_data))
 		{
-			// Game unexpectedly stopped
+			// game unexpectedly stopped
 			// TODO: REMOVE
 			printf("Error: Game unexpectedly stopped\n");
 			break;
 		}
 
+		// reset game parameters to start a new game 
+		gs_game_data.game_counter = 0;
+		gs_game_data.player_turn = -1;
+		Socket_FreeParamsArray(received_message_params.params, received_message_params.params_count);
+		received_message_params.params = NULL;	// to be on the safe side
 	}
 
-	// free all data & socket (exit protocol) & clear game data (turn = -1, counter = 0)
+	// free params and close socket if player disconnected/error occured
+	Socket_FreeParamsArray(received_message_params.params, received_message_params.params_count);
+	Socket_TearDown(client_data->client_socket, true);
 
 	return 0;
 }
@@ -277,18 +285,20 @@ static bool check_received_message(SOCKET client_socket, e_message_type expected
 	return received_message_params->message_type == expected_message_type;
 }
 
-static bool start_game_barrier()
+static bool game_barrier(uint8_t* counter)
 {
 	DWORD wait_code = WaitForSingleObject(g_barrier_mutex, WAIT_FOR_OPPENET_TIMEOUT);
 	if (wait_code != WAIT_OBJECT_0)
 		return false;
 
 	// critical area
-	g_barrier_counter++;
-	if (g_barrier_counter == NUMBER_OF_ACTIVE_CONNECTIONS)
+	(*counter)++;
+	if (*counter == NUMBER_OF_ACTIVE_CONNECTIONS)
+	{		
 		THREAD_ASSERT(ReleaseSemaphore(g_barrier_semaphore, NUMBER_OF_ACTIVE_CONNECTIONS, NULL) == true, "Error: failed releasing semaphore\n");
+		*counter = 0;
+	}
 	// end of critical area
-
 	THREAD_ASSERT(ReleaseMutex(g_barrier_mutex) == true, "Error: failed releasing mutex\n");
 
 	wait_code = WaitForSingleObject(g_barrier_semaphore, WAIT_FOR_OPPENET_TIMEOUT);
@@ -300,18 +310,19 @@ static bool start_game_barrier()
 
 static bool game_routine(s_client_data* client_data)
 {
+	uint8_t game_barrier_counter = 0;
 	while (gs_game_data.game_is_on)
 	{
-		s_message_params received_message_params = { .params = NULL };	// TODO: free the params
+		s_message_params received_message_params = { .params = NULL, .params_count = 0 };
 		// send TURN_SWITCH
-		char* params[3];
-		params[0] = gs_game_data.player_turn == 1 ? gs_game_data.first_player_name : gs_game_data.second_player_name;
-		Socket_Send(client_data->client_socket, MESSAGE_TYPE_TURN_SWITCH, 1, params);
+		char* send_message_params[3];
+		send_message_params[0] = gs_game_data.player_turn == 1 ? gs_game_data.first_player_name : gs_game_data.second_player_name;
+		Socket_Send(client_data->client_socket, MESSAGE_TYPE_TURN_SWITCH, 1, send_message_params);
 		// TODO: REMOVE
-		printf("this turn belongs to %s\n", params[0]);
+		printf("this turn belongs to %s\n", send_message_params[0]);
 
 		// if this is my turn
-		if (!strcmp(client_data->username, params[0]))
+		if (!strcmp(client_data->username, send_message_params[0]))
 		{
 			// send SERVER_MOVE_REQUEST
 			Socket_Send(client_data->client_socket, MESSAGE_TYPE_SERVER_MOVE_REQUEST, 0, NULL);
@@ -329,34 +340,47 @@ static bool game_routine(s_client_data* client_data)
 			// check player's move
 			if (received_message_params.params != NULL)
 				gs_game_data.player_move = received_message_params.params[0];
-
 			gs_game_data.game_is_on = game_logic(gs_game_data.player_move);
+			
+			// set other player name as the winner
+			if (!gs_game_data.game_is_on)
+				gs_game_data.winner = gs_game_data.player_turn == 1 ? gs_game_data.second_player_name : gs_game_data.first_player_name;
+
+			// release mutex
+			THREAD_ASSERT(ReleaseMutex(gs_game_data.mutex_game_routine) == true, "Error: failed releasing mutex\n");
 		}
 		else // other player turn
 		{
 			// wait for player move
+			DWORD wait_code = WaitForSingleObject(gs_game_data.mutex_game_routine, WAIT_FOR_OPPENET_TIMEOUT);
+			if (wait_code != WAIT_OBJECT_0)
+				return false;
 
-			params[1] = gs_game_data.player_move;
-			params[2] = gs_game_data.game_is_on ? "CONT" : "END";
+			send_message_params[1] = gs_game_data.player_move;
+			send_message_params[2] = gs_game_data.game_is_on ? "CONT" : "END";
 
 			// send GAME_VIEW
-			Socket_Send(client_data->client_socket, MESSAGE_TYPE_GAME_VIEW, 3, params);
+			Socket_Send(client_data->client_socket, MESSAGE_TYPE_GAME_VIEW, 3, send_message_params);
 
-			// game ended
-			if (gs_game_data.game_is_on)
-			{
-				params[0] = gs_game_data.second_player_name;
-				// send GAME_ENDED to winner (other player)
-				Socket_Send(client_data->client_socket, MESSAGE_TYPE_GAME_ENDED, 1, params);
-				// TODO: sent GAME_ENDED also to looser?
-				break;
-
-			}
+			// switch turns
+			gs_game_data.player_turn = gs_game_data.player_turn == 1 ? 2 : 1;
 		}
 
-		// TODO: free the params
-	}
+		// game ended
+		if (gs_game_data.game_is_on)
+		{
+			send_message_params[0] = gs_game_data.winner;
+			// send GAME_ENDED to winner (other player)
+			Socket_Send(client_data->client_socket, MESSAGE_TYPE_GAME_ENDED, 1, send_message_params);
+			break;
+		}
 
+		// make sure to switch turn of user only when both players have played
+		game_barrier(&g_game_barrier_counter);
+		
+		// free the params
+		Socket_FreeParamsArray(received_message_params.params, received_message_params.params_count);
+	}
 
 	return true;
 }
@@ -408,3 +432,5 @@ static bool game_logic(char* user_move)
 	}
 	return false;
 }
+
+

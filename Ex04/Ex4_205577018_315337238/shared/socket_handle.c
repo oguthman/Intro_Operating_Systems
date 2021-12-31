@@ -96,6 +96,7 @@ SOCKET Socket_Init(e_socket_type type, char* ip, uint16_t port)
 		// bind
 		int bindRes = bind(main_socket, (SOCKADDR*)&service, sizeof(service));
 		ASSERT(bindRes != SOCKET_ERROR, socket_cleanup, main_socket, "bind( ) failed with error %ld\n", WSAGetLastError());
+		ASSERT(listen(main_socket, SOMAXCONN) != SOCKET_ERROR, socket_cleanup, main_socket, "Error: failed listening on socket %ld\n", WSAGetLastError());
 	}
 
 	return main_socket;
@@ -213,6 +214,20 @@ e_transfer_result Socket_Receive(SOCKET main_socket, e_message_type* p_message_t
 void Socket_TearDown(SOCKET main_socket, bool socket_only)
 {
 	socket_cleanup(main_socket, socket_only);
+}
+
+void Socket_FreeParamsArray(char* params[], uint32_t number_of_params)
+{
+	if (params == NULL)
+		return;
+
+	for (uint32_t i = 0; i < number_of_params; i++) // TODO: maybe change to function
+	{
+		if (params[i] != NULL) // handle warning
+			free(params[i]);
+	}
+	
+	free(params);
 }
 
 /************************************
