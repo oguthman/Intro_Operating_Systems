@@ -144,6 +144,8 @@ DWORD WINAPI client_receive_routine(LPVOID lpParam)
 
 		Socket_FreeParamsArray(params, number_of_params);
 	}
+
+	return 0;
 }
 
 void client_teardown()

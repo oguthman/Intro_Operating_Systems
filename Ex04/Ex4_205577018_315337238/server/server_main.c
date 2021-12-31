@@ -106,6 +106,8 @@ static void close_all(HANDLE* handles, SOCKET server_socket, s_client_data* clie
 /************************************
 *       API implementation          *
 ************************************/
+// TODO: EXIT COMMAND TO EXIT SERVER
+
 int main(int argc, char* argv[])
 {
 	parse_arguments(argc, argv);
@@ -283,10 +285,10 @@ static DWORD WINAPI client_thread_routine(LPVOID lpParam)
 	return 0;
 }
 
-static bool check_received_message(SOCKET client_socket, e_message_type expected_message_type, s_message_params* received_message_params, uint32_t timeout)
+static bool check_received_message(SOCKET client_socket, e_message_type expected_message_type, s_message_params* received_message_params, uint32_t timeout) //TODO: TIMEOUT
 {
-	Socket_Receive(client_socket, &(received_message_params->message_type), received_message_params->params, &(received_message_params->params_count), timeout);
-	return received_message_params->message_type == expected_message_type;
+	e_transfer_result result = Socket_Receive(client_socket, &(received_message_params->message_type), received_message_params->params, &(received_message_params->params_count), timeout);
+	return result == transfer_succeeded && received_message_params->message_type == expected_message_type;
 }
 
 static bool game_barrier(uint8_t* counter)

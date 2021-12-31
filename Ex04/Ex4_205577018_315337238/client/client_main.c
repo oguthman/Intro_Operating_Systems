@@ -82,6 +82,7 @@ static void data_received_handle(s_client_message_params params);
 *       API implementation          *
 ************************************/
 // TODO: CHECK FREE IN GENERAL(SOCKETS AND ALLOCATIONS)
+// TODO: ASSERTS
 
 int main(int argc, char* argv[])
 {
@@ -179,7 +180,7 @@ static void data_received_handle(s_client_message_params message_params)
 {
 	// TODO: change according to instructions
 	printf("Client: message received '[%d] %s'", message_params.message_type, get_message_str(message_params.message_type));
-	
+
 	// print to console
 	switch (message_params.message_type)
 	{
@@ -189,8 +190,22 @@ static void data_received_handle(s_client_message_params message_params)
 			break;
 		case MESSAGE_TYPE_SERVER_MAIN_MENU:
 		case MESSAGE_TYPE_SERVER_NO_OPPONENTS:
+		{
 			printf("Choose what to do next:\n1. Play against another client\n2. Quit\n");
+			char send_string[256];
+			// TODO: check if need validation
+			gets_s(send_string, sizeof(send_string));
+
+			if (!strcmp(send_string, "1"))
+			{
+				s_client_message_params send_message_params = { MESSAGE_TYPE_CLIENT_VERSUS, 0, NULL };
+				client_add_transaction(send_message_params);
+			}
+
+			// TODO: flag for close the client process
+
 			break;
+		}
 		case MESSAGE_TYPE_GAME_STARTED:
 			printf("Game is on!\n");
 			break;
@@ -202,8 +217,17 @@ static void data_received_handle(s_client_message_params message_params)
 				printf("%s's turn!\n", message_params.params[0]);
 			break;
 		case MESSAGE_TYPE_SERVER_MOVE_REQUEST:
+		{
 			printf("Enter the next number or boom:\n");
+			char send_string[256];
+			// TODO: check if need validation
+			gets_s(send_string, sizeof(send_string));
+
+			char* params[1] = { send_string };
+			s_client_message_params send_message_params = { MESSAGE_TYPE_CLIENT_PLAYER_MOVE, 1, params };
+			client_add_transaction(send_message_params);
 			break;
+		}
 		case MESSAGE_TYPE_GAME_ENDED:
 			printf("%s won!\n", message_params.params[0]);
 			break;
@@ -224,3 +248,13 @@ static void data_received_handle(s_client_message_params message_params)
 	}
 }
 
+static void send_user_response(e_message_type message_type)
+{
+	char send_string[256];
+	gets_s(send_string, sizeof(send_string));
+
+	// TODO: check if need validation
+	char* params[1] = { send_string };
+	s_client_message_params send_message_params = { message_type, 1, params };
+	client_add_transaction(send_message_params);
+}

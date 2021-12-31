@@ -18,6 +18,7 @@ ALL RIGHTS RESERVED
 *      include                      *
 ************************************/
 #include "threads.h"
+#include <stdio.h>
 
 /************************************
 *      definitions                 *

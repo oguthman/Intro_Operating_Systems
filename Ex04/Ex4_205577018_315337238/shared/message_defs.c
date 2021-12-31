@@ -29,7 +29,7 @@ ALL RIGHTS RESERVED
 /************************************
 *      variables                    *
 ************************************/
-const char* message_str[] = {
+static char* message_str[] = {
 	// client
 	"CLIENT_REQUEST",
 	"CLIENT_VERSUS",
