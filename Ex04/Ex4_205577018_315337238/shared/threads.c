@@ -71,7 +71,7 @@ HANDLE create_new_thread(LPTHREAD_START_ROUTINE p_function, LPVOID p_thread_para
 	return thread_handle;
 }
 
-bool wait_for_thread(HANDLE* handles, int number_of_active_handles)
+bool wait_for_threads(HANDLE* handles, int number_of_active_handles)
 {
 	DWORD threads_status = WaitForMultipleObjects(
 		number_of_active_handles,		// number of arguments in handles array
@@ -127,6 +127,13 @@ HANDLE create_semaphore(int init_count, int max_count)
 		NULL);		/* name semaphore */
 
 	return semaphore;
+}
+
+void close_handles(HANDLE* handles, uint32_t number_of_active_handles)
+{
+	for (uint32_t i = 0; i < number_of_active_handles; i++)
+		if (handles[i] != NULL)
+			CloseHandle(handles[i]);
 }
 
 /************************************

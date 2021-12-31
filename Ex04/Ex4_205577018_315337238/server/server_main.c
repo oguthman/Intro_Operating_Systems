@@ -99,6 +99,9 @@ static bool game_barrier(uint8_t* counter);
 static bool update_game_data(s_client_data* client_data);
 static bool game_routine(s_client_data* client_data);
 static bool game_logic(char* user_move);
+static bool find_available_thread(HANDLE* handles, int8_t* thread_index);
+static void decide_first_player(HANDLE* handles, char* player_name);
+static void close_all(HANDLE* handles, SOCKET server_socket, s_client_data* client_data);
 
 /************************************
 *       API implementation          *
@@ -112,9 +115,8 @@ int main(int argc, char* argv[])
 	ASSERT(server_socket != INVALID_SOCKET, "Error: server can't open socket\n");		//TODO: exit?
 
 	// accept or decline. create new thread for each client. TODO: WHILE LOOP on number_of_clients_connected
-	uint8_t number_of_clients_connected = 0;
 	s_client_data client_data_array[NUMBER_OF_ACTIVE_CONNECTIONS];
-	HANDLE handles[NUMBER_OF_ACTIVE_CONNECTIONS];
+	HANDLE handles[NUMBER_OF_ACTIVE_CONNECTIONS] = { NULL, NULL };
 	
 	while (1)
 	{
@@ -124,8 +126,17 @@ int main(int argc, char* argv[])
 		// TODO: remove
 		printf("Client has connected\n");
 
-		number_of_clients_connected++;
-		if (number_of_clients_connected > 2)
+		// search for unused thread slot
+		int8_t thread_index;
+		if (!find_available_thread(handles, &thread_index))
+		{
+			// failed to wait for object
+			printf("Error: WaitForSingleObject has failed (%d)\n", GetLastError());
+			Socket_TearDown(accept_socket, true);
+			break;
+		}
+
+		if (thread_index == -1)
 		{
 			// TODO: remove
 			printf("Rejecting client\n");
@@ -133,11 +144,9 @@ int main(int argc, char* argv[])
 			Socket_Send(accept_socket, MESSAGE_TYPE_SERVER_DENIED, 0, NULL);
 			// reject client
 			Socket_TearDown(accept_socket, true);
-
-			number_of_clients_connected--;
 			continue;
 		}
-		
+				
 		// receive new client username
 		s_message_params received_message_params;
 		if (!check_received_message(accept_socket, MESSAGE_TYPE_CLIENT_REQUEST, &received_message_params, 0)) // TODO: Add timeout
@@ -147,33 +156,27 @@ int main(int argc, char* argv[])
 			// TODO: gracefull exit
 			// reject client
 			Socket_TearDown(accept_socket, true);
-
-			number_of_clients_connected--;
+			Socket_FreeParamsArray(received_message_params.params, received_message_params.params_count);
 			continue;
 		}
 
 		// approve new client
 		Socket_Send(accept_socket, MESSAGE_TYPE_SERVER_APPROVED, 0, NULL);
 		
-		if (number_of_clients_connected == 1) //TODO: check importance of players order in handles
-		{
-			// first player
-			client_data_array[0].client_socket = accept_socket;
-			strcpy(client_data_array[0].username, received_message_params.params[0]);
-			handles[0] = create_new_thread(client_thread_routine, &client_data_array[0]);
-			THREAD_ASSERT(handles[0] != NULL, "Error: failed creating a thread\n");
-		}
-		else
-		{
-			// second player
-			client_data_array[1].client_socket = accept_socket;
-			strcpy(client_data_array[1].username, received_message_params.params[0]);
-			handles[1] = create_new_thread(client_thread_routine, &client_data_array[1]);
-			THREAD_ASSERT(handles[1] != NULL, "Error: failed creating a thread\n");
-		}
+		decide_first_player(handles, received_message_params.params[0]);
+
+		// set threads
+		client_data_array[thread_index].client_socket = accept_socket;
+		strcpy(client_data_array[thread_index].username, received_message_params.params[0]);
+		handles[thread_index] = create_new_thread(client_thread_routine, &client_data_array[thread_index]);
+		THREAD_ASSERT(handles[thread_index] != NULL, "Error: failed creating a thread\n");
+
+		// free params
+		Socket_FreeParamsArray(received_message_params.params, received_message_params.params_count);
 	}
 
 	// free all allocation & close handles (Threads, Mutex, Semaphores & Events)
+	close_all(handles, server_socket, client_data_array);
 }
 
 /************************************
@@ -275,6 +278,7 @@ static DWORD WINAPI client_thread_routine(LPVOID lpParam)
 	// free params and close socket if player disconnected/error occured
 	Socket_FreeParamsArray(received_message_params.params, received_message_params.params_count);
 	Socket_TearDown(client_data->client_socket, true);
+	client_data->client_socket = INVALID_SOCKET;	// to prevent double close socket
 
 	return 0;
 }
@@ -433,4 +437,68 @@ static bool game_logic(char* user_move)
 	return false;
 }
 
+static bool find_available_thread(HANDLE* handles, int8_t* thread_index)
+{
+	for (uint8_t i = 0; i < NUMBER_OF_ACTIVE_CONNECTIONS; i++)
+	{
+		if (handles[i] == NULL)
+		{
+			*thread_index = i;
+			return true;
+		}
+
+		// polling on threads
+		DWORD wait_code = WaitForSingleObject(handles[i], 0);
+		if (wait_code == WAIT_OBJECT_0)
+		{
+			CloseHandle(handles[i]);
+			*thread_index = i;
+			handles[i] = NULL;
+			return true;
+		}
+
+		else if (wait_code == WAIT_FAILED)
+		{
+			return false;
+		}
+	}
+
+	*thread_index = -1;
+	return true;
+}
+
+static void decide_first_player(HANDLE* handles, char* player_name)
+{
+	// no user connected yet
+	if (handles[0] == NULL && handles[1] == NULL)
+		strcpy(gs_game_data.first_player_name, player_name);
+	// first user disconnected
+	else if (handles[0] == NULL && handles[1] != NULL)
+	{
+		strcpy(gs_game_data.first_player_name, gs_game_data.second_player_name);
+		strcpy(gs_game_data.second_player_name, player_name);
+	}
+	// second user disconnected or second user first connection
+	else
+	{
+		strcpy(gs_game_data.second_player_name, player_name);
+	}
+}
+
+static void close_all(HANDLE* handles, SOCKET server_socket, s_client_data* client_data)
+{
+	CloseHandle(g_barrier_mutex);
+	CloseHandle(g_barrier_semaphore);
+	CloseHandle(gs_game_data.mutex_game_routine);
+	CloseHandle(gs_game_data.mutex_game_update);
+
+	for (int8_t i = 0; i < NUMBER_OF_ACTIVE_CONNECTIONS; i++)
+	{
+		if (client_data[i].client_socket != INVALID_SOCKET)
+			Socket_TearDown(client_data[i].client_socket, true);
+	}
+
+	close_handles(handles, NUMBER_OF_ACTIVE_CONNECTIONS);
+	Socket_TearDown(server_socket, false);
+}
 
