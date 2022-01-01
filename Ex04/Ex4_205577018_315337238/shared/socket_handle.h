@@ -62,7 +62,7 @@ e_transfer_result Socket_Send(SOCKET socket, e_message_type message_type, int pa
 /// <param name="p_message_type"></param>
 /// <param name="params">return allocated list of param, need to free them outside</param>
 /// <returns></returns>
-e_transfer_result Socket_Receive(SOCKET main_socket, e_message_type* p_message_type, char* params[], uint32_t* num_of_params, uint32_t timeout);
+e_transfer_result Socket_Receive(SOCKET main_socket, e_message_type* p_message_type, char*** params, uint32_t* num_of_params, uint32_t timeout);
 
 void Socket_TearDown(SOCKET socket, bool socket_only);
 

@@ -149,7 +149,7 @@ e_transfer_result Socket_Send(SOCKET main_socket, e_message_type message_type, i
 }
 
 // TODO: implement timeout
-e_transfer_result Socket_Receive(SOCKET main_socket, e_message_type* p_message_type, char* params[], uint32_t* num_of_params, uint32_t timeout)
+e_transfer_result Socket_Receive(SOCKET main_socket, e_message_type* p_message_type, char*** params, uint32_t* num_of_params, uint32_t timeout)
 {
 	e_transfer_result transfer_result;
 	// reading buffer length
@@ -190,19 +190,19 @@ e_transfer_result Socket_Receive(SOCKET main_socket, e_message_type* p_message_t
 		printf("recieve: %s\n", message_type_str);
 
 		// TODO: free params after done with them (params list & items)
-		char** temp_params = realloc(params, (*num_of_params) * sizeof(char*));
+		char** temp_params = realloc(*params, (*num_of_params) * sizeof(char*));
 		if (temp_params == NULL)
 		{
-			free(params);
+			free(*params);
 			//TODO:EXIT
 			//return transfer_fault
 		}
-		params = temp_params;
+		*params = temp_params;
 		//ASSERT(params != NULL, socket_cleanup, main_socket, "Error: failed reallocation memory\n");  // TODO: action - cleanup
 		
-		params[*num_of_params - 1] = malloc((strlen(message_type_str) + 1) * sizeof(char));
-		ASSERT(params[*num_of_params - 1] != NULL, socket_cleanup, main_socket, "Error: failed allocation memory\n");  // TODO: fix action
-		strcpy(params[*num_of_params - 1], message_type_str);
+		*params[*num_of_params - 1] = malloc((strlen(message_type_str) + 1) * sizeof(char));
+		ASSERT(*params[*num_of_params - 1] != NULL, socket_cleanup, main_socket, "Error: failed allocation memory\n");  // TODO: fix action
+		strcpy(*params[*num_of_params - 1], message_type_str);
 
 		message_type_str = strtok(NULL, ";");
 	}
@@ -293,4 +293,10 @@ static e_transfer_result receive_buffer(SOCKET main_socket, char* buffer, uint32
 	}
 
 	return transfer_succeeded;
+}
+
+static bool polling_timeout(SOCKET main_socket, int timeout)
+{
+	WSAPOLLFD fd[1] = { {.fd = main_socket } };
+	return WSAPoll(fd, 1, timeout) != 0;
 }

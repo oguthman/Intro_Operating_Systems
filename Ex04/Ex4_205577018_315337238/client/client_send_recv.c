@@ -40,7 +40,7 @@ ALL RIGHTS RESERVED
 /************************************
 *      variables                    *
 ************************************/
-static SOCKET g_client_socket;
+static SOCKET* g_client_socket;
 
 static struct {
 	s_node* transaction_queue;
@@ -60,7 +60,7 @@ static bool wait_for_event(HANDLE event);
 /************************************
 *       API implementation          *
 ************************************/
-void client_init_send_recv(SOCKET client_socket)
+void client_init_send_recv(SOCKET* client_socket)
 {
 	g_client_socket = client_socket;
 
@@ -104,7 +104,7 @@ DWORD WINAPI client_send_routine(LPVOID lpParam)
 		s_client_message_params* p_params = queue_pop(&gs_sending_vars.transaction_queue);
 		
 		// sending packet through socket
-		e_transfer_result result = Socket_Send(g_client_socket, p_params->message_type, p_params->params_count, p_params->params);
+		e_transfer_result result = Socket_Send(*g_client_socket, p_params->message_type, p_params->params_count, p_params->params);
 		if (result == transfer_failed)
 		{
 			//TODO: NOT HAPPY PATH
@@ -126,7 +126,7 @@ DWORD WINAPI client_receive_routine(LPVOID lpParam)
 		char** params = NULL;
 		uint32_t number_of_params = 0;
 		uint32_t timeout = 10;	//TODO: change
-		e_transfer_result result = Socket_Receive(g_client_socket, &message_type, params, &number_of_params, timeout);
+		e_transfer_result result = Socket_Receive(*g_client_socket, &message_type, &params, &number_of_params, timeout);
 
 		if (result == transfer_disconnected)
 		{

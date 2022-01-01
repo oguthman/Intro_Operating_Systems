@@ -148,7 +148,7 @@ int main(int argc, char* argv[])
 			Socket_TearDown(accept_socket, true);
 			continue;
 		}
-				
+
 		// receive new client username
 		s_message_params received_message_params;
 		if (!check_received_message(accept_socket, MESSAGE_TYPE_CLIENT_REQUEST, &received_message_params, 0)) // TODO: Add timeout
@@ -238,13 +238,13 @@ static DWORD WINAPI client_thread_routine(LPVOID lpParam)
 		}
 
 		// update game data
-		if (!update_game_data(client_data))
-		{
-			// failed handle mutex
-			// TODO: REMOVE
-			printf("Error: failed handle mutex\n");
-			break;
-		}
+		//if (!update_game_data(client_data))
+		//{
+		//	// failed handle mutex
+		//	// TODO: REMOVE
+		//	printf("Error: failed handle mutex\n");
+		//	break;
+		//}
 
 		// wait for another player to connect
 		if (!game_barrier(&g_start_game_barrier_counter))
@@ -287,7 +287,8 @@ static DWORD WINAPI client_thread_routine(LPVOID lpParam)
 
 static bool check_received_message(SOCKET client_socket, e_message_type expected_message_type, s_message_params* received_message_params, uint32_t timeout) //TODO: TIMEOUT
 {
-	e_transfer_result result = Socket_Receive(client_socket, &(received_message_params->message_type), received_message_params->params, &(received_message_params->params_count), timeout);
+	received_message_params->params = NULL;
+	e_transfer_result result = Socket_Receive(client_socket, &(received_message_params->message_type), &received_message_params->params, &(received_message_params->params_count), timeout);
 	return result == transfer_succeeded && received_message_params->message_type == expected_message_type;
 }
 

@@ -91,7 +91,7 @@ int main(int argc, char* argv[])
 	
 	// init modules
 	// init client send receive module
-	client_init_send_recv(g_client_socket);
+	client_init_send_recv(&g_client_socket);
 	client_bind_callback(data_received_handle);
 		
 	HANDLE handles[2];
@@ -180,6 +180,8 @@ static void data_received_handle(s_client_message_params message_params)
 {
 	// TODO: change according to instructions
 	printf("Client: message received '[%d] %s'", message_params.message_type, get_message_str(message_params.message_type));
+	for (uint8_t i = 0; i < message_params.params_count; i++)
+		printf("params[%d] = %s\n", i, message_params.params[i]);
 
 	// print to console
 	switch (message_params.message_type)
