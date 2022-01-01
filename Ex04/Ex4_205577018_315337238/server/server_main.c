@@ -96,6 +96,7 @@ static bool game_logic(char* user_move);
 static bool find_available_thread(HANDLE* handles, int8_t* thread_index);
 static void decide_first_player(HANDLE* handles, char* player_name);
 static void close_all(HANDLE* handles, SOCKET server_socket, s_client_data* client_data);
+static bool find_seven();
 
 /************************************
 *       API implementation          *
@@ -381,14 +382,13 @@ static bool game_routine(s_client_data* client_data)
 // return true if the game is still on, false if player lost in this turn.
 static bool game_logic(char* user_move)
 {
-	uint32_t units;
 	bool boom = false;
-
+	bool seven = false;
+	
 	// update game counter 
 	gs_game_data.game_counter++;
-	units = gs_game_data.game_counter % 10;
-
-	if ((gs_game_data.game_counter % 7) == 0 || (units % 7) == 0)
+	
+	if ((gs_game_data.game_counter % 7) == 0 || find_seven())
 	{
 		boom = true;
 	}
@@ -397,7 +397,7 @@ static bool game_logic(char* user_move)
 	
 	if (boom)
 	{
-		if (strcmp("boom", user_move)) return true;
+		if (!strcmp("boom", user_move)) return true;
 		return false;
 	}
 	else
@@ -475,3 +475,25 @@ static void close_all(HANDLE* handles, SOCKET server_socket, s_client_data* clie
 	Socket_TearDown(server_socket, false);
 }
 
+static bool find_seven()
+{
+	int message_length = snprintf(NULL, 0, "%d", gs_game_data.game_counter);
+	char* buffer = malloc((message_length + 1) * sizeof(char));
+	if (NULL == buffer)
+	{
+		printf("Error: failed allocating buffer for message\n");
+		return false;
+	}
+	snprintf(buffer, message_length + 1, "%d", gs_game_data.game_counter);
+
+	for (uint32_t i = 0; i < strlen(buffer); i++)
+	{
+		if (buffer[i] == '7')
+		{
+			free(buffer);
+			return true;
+		}
+	}
+	free(buffer);
+	return false;
+}
