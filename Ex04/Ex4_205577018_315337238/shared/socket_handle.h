@@ -33,6 +33,7 @@ ALL RIGHTS RESERVED
 /************************************
 *      definitions                 *
 ************************************/
+#define MAX_PARAMS_ARGUMENTS			4
 
 /************************************
 *       types                       *
@@ -48,6 +49,12 @@ typedef enum {
 	transfer_disconnected
 } e_transfer_result;
 
+typedef struct {
+	e_message_type message_type;
+	uint32_t params_count;
+	char* params[MAX_PARAMS_ARGUMENTS];
+} s_message_params;
+
 /************************************
 *       API                         *
 ************************************/
@@ -62,7 +69,7 @@ e_transfer_result Socket_Send(SOCKET socket, e_message_type message_type, int pa
 /// <param name="p_message_type"></param>
 /// <param name="params">return allocated list of param, need to free them outside</param>
 /// <returns></returns>
-e_transfer_result Socket_Receive(SOCKET main_socket, e_message_type* p_message_type, char*** params, uint32_t* num_of_params, uint32_t timeout);
+e_transfer_result Socket_Receive(SOCKET main_socket, s_message_params* message_params, uint32_t timeout);
 
 void Socket_TearDown(SOCKET socket, bool socket_only);
 

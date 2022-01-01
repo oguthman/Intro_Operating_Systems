@@ -76,7 +76,7 @@ static struct {
 ************************************/
 static void parse_arguments(int argc, char* argv[]);
 static void validate_menu_input(int* value, int min_arg, int max_arg, char* message);
-static void data_received_handle(s_client_message_params params);
+static void data_received_handle(s_message_params params);
 
 /************************************
 *       API implementation          *
@@ -108,8 +108,8 @@ int main(int argc, char* argv[])
 			printf("Connected to server on %s:%d\n", gs_inputs.server_ip, gs_inputs.server_port);
 			// write to log: ("Connected to server on %s:%s\n", gs_inputs.server_ip, gs_inputs.server_port);
 			// send my name to the server
-			char* params[] = { gs_inputs.username };
-			s_client_message_params message_params = { MESSAGE_TYPE_CLIENT_REQUEST, 1, params };
+			s_message_params message_params = { .message_type = MESSAGE_TYPE_CLIENT_REQUEST, .params_count = 1 };
+			message_params.params[0] = gs_inputs.username;
 			client_add_transaction(message_params);
 
 			break;
@@ -132,7 +132,9 @@ int main(int argc, char* argv[])
 	THREAD_ASSERT(handles[1] != NULL, "Error: failed creating a thread\n");
 
 	// temp
-	WaitForMultipleObjects(2, handles, false, INFINITE);
+	DWORD wait_code = WaitForMultipleObjects(2, handles, false, INFINITE);
+
+	printf("Exit the program, wait code is %d (Error %d)\n", wait_code, GetLastError());
 
 	CloseHandle(handles[0]);
 	CloseHandle(handles[1]);
@@ -176,12 +178,9 @@ static void validate_menu_input(int* value, int min_arg, int max_arg, char* mess
 	}
 }
 
-static void data_received_handle(s_client_message_params message_params)
+static void data_received_handle(s_message_params message_params)
 {
 	// TODO: change according to instructions
-	printf("Client: message received '[%d] %s'", message_params.message_type, get_message_str(message_params.message_type));
-	for (uint8_t i = 0; i < message_params.params_count; i++)
-		printf("params[%d] = %s\n", i, message_params.params[i]);
 
 	// print to console
 	switch (message_params.message_type)
@@ -200,7 +199,7 @@ static void data_received_handle(s_client_message_params message_params)
 
 			if (!strcmp(send_string, "1"))
 			{
-				s_client_message_params send_message_params = { MESSAGE_TYPE_CLIENT_VERSUS, 0, NULL };
+				s_message_params send_message_params = { .message_type = MESSAGE_TYPE_CLIENT_VERSUS };
 				client_add_transaction(send_message_params);
 			}
 
@@ -225,8 +224,9 @@ static void data_received_handle(s_client_message_params message_params)
 			// TODO: check if need validation
 			gets_s(send_string, sizeof(send_string));
 
-			char* params[1] = { send_string };
-			s_client_message_params send_message_params = { MESSAGE_TYPE_CLIENT_PLAYER_MOVE, 1, params };
+			s_message_params send_message_params = { .message_type = MESSAGE_TYPE_CLIENT_PLAYER_MOVE, .params_count = 1 };
+			send_message_params.params[0] = send_string;
+
 			client_add_transaction(send_message_params);
 			break;
 		}
@@ -250,13 +250,3 @@ static void data_received_handle(s_client_message_params message_params)
 	}
 }
 
-static void send_user_response(e_message_type message_type)
-{
-	char send_string[256];
-	gets_s(send_string, sizeof(send_string));
-
-	// TODO: check if need validation
-	char* params[1] = { send_string };
-	s_client_message_params send_message_params = { message_type, 1, params };
-	client_add_transaction(send_message_params);
-}

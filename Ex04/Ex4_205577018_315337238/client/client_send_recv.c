@@ -1,3 +1,4 @@
+#define _CRT_SECURE_NO_WARNINGS
 /*!
 ******************************************************************************
 \file client_send_recv.c
@@ -20,6 +21,7 @@ ALL RIGHTS RESERVED
 #include <stdio.h>
 #include "client_send_recv.h"
 #include "../shared/queue.h"
+#include "../shared/threads.h"
 
 /************************************
 *      definitions                 *
@@ -54,8 +56,6 @@ static struct {
 /************************************
 *      static functions             *
 ************************************/
-static HANDLE create_event_handle(bool manual_reset);
-static bool wait_for_event(HANDLE event);
 
 /************************************
 *       API implementation          *
@@ -77,12 +77,20 @@ void client_bind_callback(receive_callback callback)
 	gs_receiving_vars.callback = callback;
 }
 
-void client_add_transaction(s_client_message_params params)
+void client_add_transaction(s_message_params params)
 {
-	s_client_message_params* p_params = malloc(sizeof(s_client_message_params));
+	s_message_params* p_params = malloc(sizeof(s_message_params));
 	ASSERT(p_params != NULL, "Error: falied allocating memory\n");
-	
 	memcpy(p_params, &params, sizeof(params));
+	
+	// TODO: check if needed below allocation
+	for (uint8_t i = 0; i < params.params_count; i++)
+	{
+		p_params->params[i] = malloc((strlen(params.params[i]) + 1)* sizeof(char));
+		ASSERT(p_params->params[i] != NULL, "Error: falied allocating memory\n");
+		strcpy(p_params->params[i], params.params[i]);
+	}
+
 	queue_push(&gs_sending_vars.transaction_queue, (void*)p_params, false);
 
 	// notify by event on new transaction
@@ -101,7 +109,7 @@ DWORD WINAPI client_send_routine(LPVOID lpParam)
 		if (!wait_for_event(gs_sending_vars.send_event_handle))
 			return 1;	//exitcode
 		
-		s_client_message_params* p_params = queue_pop(&gs_sending_vars.transaction_queue);
+		s_message_params* p_params = queue_pop(&gs_sending_vars.transaction_queue);
 		
 		// sending packet through socket
 		e_transfer_result result = Socket_Send(*g_client_socket, p_params->message_type, p_params->params_count, p_params->params);
@@ -110,7 +118,7 @@ DWORD WINAPI client_send_routine(LPVOID lpParam)
 			//TODO: NOT HAPPY PATH
 		}
 
-		free(p_params);
+		Socket_FreeParamsArray(p_params->params, p_params->params_count);
 	}
 
 	return 0; //TODO: temp - check if exit protocol needed
@@ -122,27 +130,25 @@ DWORD WINAPI client_receive_routine(LPVOID lpParam)
 	{
 		// wait to receive new transaction
 		// happy path
-		e_message_type message_type = MESSAGE_TYPE_UNKNOWN;
-		char** params = NULL;
-		uint32_t number_of_params = 0;
+		s_message_params message_params = { MESSAGE_TYPE_UNKNOWN };
 		uint32_t timeout = 10;	//TODO: change
-		e_transfer_result result = Socket_Receive(*g_client_socket, &message_type, &params, &number_of_params, timeout);
+		e_transfer_result result = Socket_Receive(*g_client_socket, &message_params, timeout);
 
 		if (result == transfer_disconnected)
 		{
 			// breaking the loop
-			Socket_FreeParamsArray(params, number_of_params);
+			printf("socket disconnected\n");
+			Socket_FreeParamsArray(message_params.params, message_params.params_count);
 			break;
 		}
 
 		//callback - move the info to ui
-		s_client_message_params message_params = { message_type, number_of_params, params };
 		if (gs_receiving_vars.callback != NULL)
 			gs_receiving_vars.callback(message_params);
 
 		// TODO: not happy path
 
-		Socket_FreeParamsArray(params, number_of_params);
+		Socket_FreeParamsArray(message_params.params, message_params.params_count);
 	}
 
 	return 0;
@@ -159,33 +165,4 @@ void client_teardown()
 /************************************
 * static implementation             *
 ************************************/
-static HANDLE create_event_handle(bool manual_reset)
-{
-	HANDLE event = NULL;
 
-	event = CreateEvent(
-		NULL,				// default security attributes
-		manual_reset,		// manual reset event
-		false,				// initail state
-		NULL);				// object name
-
-	if (event == NULL)
-	{
-		printf("Error: CreateEvent failed (%d)\n", GetLastError());
-		return NULL;
-	}
-
-	return event;
-}
-
-static bool wait_for_event(HANDLE event)
-{
-	DWORD code = WaitForSingleObject(event, INFINITE);
-	if (code != WAIT_OBJECT_0)
-	{
-		printf("Error: waiting to event failed (%d)\n", GetLastError());
-		return false;
-	}
-
-	return true;
-}

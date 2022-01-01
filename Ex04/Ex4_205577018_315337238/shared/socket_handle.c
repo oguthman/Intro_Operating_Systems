@@ -149,10 +149,10 @@ e_transfer_result Socket_Send(SOCKET main_socket, e_message_type message_type, i
 }
 
 // TODO: implement timeout
-e_transfer_result Socket_Receive(SOCKET main_socket, e_message_type* p_message_type, char*** params, uint32_t* num_of_params, uint32_t timeout)
+e_transfer_result Socket_Receive(SOCKET main_socket, s_message_params* message_params, uint32_t timeout)
 {
 	e_transfer_result transfer_result;
-	// reading buffer length
+	// read buffer length
 	int message_length;
 	transfer_result = receive_buffer(main_socket, (char*)(&message_length), (uint32_t)(sizeof(message_length)));
 	
@@ -176,36 +176,24 @@ e_transfer_result Socket_Receive(SOCKET main_socket, e_message_type* p_message_t
 	}
 
 	char* message_type_str = strtok(buffer, ":");
-	// TODO: Remove
-	printf("recieve: %s\n", message_type_str);
-	*p_message_type = (e_message_type)strtol(message_type_str, NULL, 10);
+	message_params->message_type = (e_message_type)strtol(message_type_str, NULL, 10);
 
-	// getting params
-	*num_of_params = 0;
+	// get params
+	message_params->params_count = 0;
 	message_type_str = strtok(NULL, ";");
-	while (message_type_str != NULL)
+	while (message_type_str != NULL)	// strtok returns NULL when there is no split left
 	{
-		(*num_of_params)++;
-		// TODO: Remove
-		printf("recieve: %s\n", message_type_str);
+		message_params->params_count++;
 
 		// TODO: free params after done with them (params list & items)
-		char** temp_params = realloc(*params, (*num_of_params) * sizeof(char*));
-		if (temp_params == NULL)
-		{
-			free(*params);
-			//TODO:EXIT
-			//return transfer_fault
-		}
-		*params = temp_params;
-		//ASSERT(params != NULL, socket_cleanup, main_socket, "Error: failed reallocation memory\n");  // TODO: action - cleanup
 		
-		*params[*num_of_params - 1] = malloc((strlen(message_type_str) + 1) * sizeof(char));
-		ASSERT(*params[*num_of_params - 1] != NULL, socket_cleanup, main_socket, "Error: failed allocation memory\n");  // TODO: fix action
-		strcpy(*params[*num_of_params - 1], message_type_str);
+		message_params->params[message_params->params_count - 1] = malloc((strlen(message_type_str) + 1) * sizeof(char));
+		ASSERT(message_params->params[message_params->params_count - 1] != NULL, socket_cleanup, main_socket, "Error: failed allocation memory\n");  // TODO: fix action
+		strcpy(message_params->params[message_params->params_count - 1], message_type_str);
 
 		message_type_str = strtok(NULL, ";");
 	}
+
 
 	free(buffer);
 	return transfer_result;
@@ -227,7 +215,7 @@ void Socket_FreeParamsArray(char* params[], uint32_t number_of_params)
 			free(params[i]);
 	}
 	
-	free(params);
+	//free(params);
 }
 
 /************************************

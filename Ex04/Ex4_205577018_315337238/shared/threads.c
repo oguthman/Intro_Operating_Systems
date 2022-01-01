@@ -111,9 +111,9 @@ HANDLE create_mutex(bool signal)
 {
 	/* Create the mutex that will be used to synchronize access to critical section */
 	HANDLE mutex = CreateMutex(
-		NULL,	/* default security attributes */
-		signal,	/* initially not owned */
-		NULL);	/* unnamed mutex */
+		NULL,		/* default security attributes */
+		!signal,	/* ownership */
+		NULL);		/* unnamed mutex */
 
 	return mutex;
 }
@@ -128,6 +128,37 @@ HANDLE create_semaphore(int init_count, int max_count)
 		NULL);		/* name semaphore */
 
 	return semaphore;
+}
+
+HANDLE create_event_handle(bool manual_reset)
+{
+	HANDLE event = NULL;
+
+	event = CreateEvent(
+		NULL,				// default security attributes
+		manual_reset,		// manual reset event
+		false,				// initail state
+		NULL);				// object name
+
+	if (event == NULL)
+	{
+		printf("Error: CreateEvent failed (%d)\n", GetLastError());
+		return NULL;
+	}
+
+	return event;
+}
+
+bool wait_for_event(HANDLE event)
+{
+	DWORD code = WaitForSingleObject(event, INFINITE);
+	if (code != WAIT_OBJECT_0)
+	{
+		printf("Error: waiting to event failed (%d)\n", GetLastError());
+		return false;
+	}
+
+	return true;
 }
 
 void close_handles(HANDLE* handles, uint32_t number_of_active_handles)

@@ -52,6 +52,8 @@ HANDLE create_new_thread(LPTHREAD_START_ROUTINE p_function, LPVOID p_thread_para
 bool wait_for_threads(HANDLE* handles, int number_of_active_handles);
 HANDLE create_mutex(bool signal);
 HANDLE create_semaphore(int init_count, int max_count);
+HANDLE create_event_handle(bool manual_reset);
+bool wait_for_event(HANDLE event);
 
 /// Description: close all thread handles.  
 /// Parameters: 
