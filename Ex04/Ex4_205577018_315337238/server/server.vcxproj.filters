@@ -20,9 +20,6 @@
     </Filter>
   </ItemGroup>
   <ItemGroup>
-    <ClCompile Include="template.c">
-      <Filter>Source Files</Filter>
-    </ClCompile>
     <ClCompile Include="server_main.c">
       <Filter>Source Files</Filter>
     </ClCompile>
@@ -37,6 +34,9 @@
     </ClCompile>
     <ClCompile Include="..\shared\FileApi\file.c">
       <Filter>shared\src</Filter>
+    </ClCompile>
+    <ClCompile Include="game.c">
+      <Filter>Source Files</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>
@@ -54,6 +54,9 @@
     </ClInclude>
     <ClInclude Include="..\shared\FileApi\file.h">
       <Filter>shared\inc</Filter>
+    </ClInclude>
+    <ClInclude Include="game.h">
+      <Filter>Source Files</Filter>
     </ClInclude>
   </ItemGroup>
 </Project>
