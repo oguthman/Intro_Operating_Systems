@@ -97,7 +97,7 @@ static HANDLE create_semaphore(int init_count, int max_count);
 /************************************
 *       API implementation          *
 ************************************/
-/// Description: open treads by requests from input file and running the clock. 
+/// Description: open treads by requests from input file and run the clock. 
 /// Parameters: 
 ///		[in] argc - number of arguments. 
 ///		[in] argv - arguments list. 

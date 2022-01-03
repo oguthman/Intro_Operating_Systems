@@ -101,13 +101,17 @@ static void data_received_handle(s_message_params params);
 // TODO: CHECK FREE IN GENERAL(SOCKETS AND ALLOCATIONS)
 // TODO: ASSERTS
 
+/// Description: initiate values and modules, connect to server, create client threads. 
+/// Parameters: 
+///		[in] argc - number of arguments. 
+///		[in] argv - arguments list. 
+/// Return: true if succeeded or false otherwise.
 int main(int argc, char* argv[])
 {
 	// parse arguments
 	parse_arguments(argc, argv);
 	open_log_file();
 
-	// init modules
 	g_exit_flag = false;
 	g_soft_exit_flag = false;
 	g_connection_state = connection_idle;
@@ -117,13 +121,13 @@ int main(int argc, char* argv[])
 	client_init_send_recv(&g_client_socket, &g_soft_exit_flag);
 	client_bind_callback(data_received_handle);
 
-	// running the loop
+	// run loop
 	while (g_exit_flag == false)
 	{
-		// try to connect server
+		// try to connect to server
 		g_client_socket = Socket_Init(socket_client, gs_inputs.server_ip, gs_inputs.server_port);
 
-		// if failed print menu
+		// connection failed
 		if (g_client_socket == INVALID_SOCKET)
 		{
 			LOG_PRINTF("Failed connecting to server on %s:%d\n", gs_inputs.server_ip, gs_inputs.server_port);
@@ -132,14 +136,14 @@ int main(int argc, char* argv[])
 			continue;
 		}
 
-		// socket has connnected
+		// connection succeeded
 		LOG_PRINTF("Connected to server on %s:%d\n", gs_inputs.server_ip, gs_inputs.server_port);
-		// send my name to the server
+		// send client name to the server
 		s_message_params message_params = { .message_type = MESSAGE_TYPE_CLIENT_REQUEST, .params_count = 1 };
 		message_params.params[0] = gs_inputs.username;
 		client_add_transaction(message_params);
 
-		// start send & receive threads
+		// initiate send and receive threads
 		thread_handels[0] = create_new_thread(client_send_routine, NULL);
 		thread_handels[1] = create_new_thread(client_receive_routine, NULL);
 		if (thread_handels[0] == NULL || thread_handels[1] == NULL)
@@ -149,7 +153,7 @@ int main(int argc, char* argv[])
 			break;
 		}
 
-		// waiting for connection succeed
+		// wait for connection succeed
 		if (!wait_for_connection())
 		{
 			// access denied, start again
@@ -158,7 +162,7 @@ int main(int argc, char* argv[])
 			continue;
 		}
 
-		// waiting for threads to end
+		// wait for threads to finish
 		if (!wait_for_threads(thread_handels, 2, false, INFINITE, false))
 		{
 			LOG_PRINTF("Error: wait for threads return error\n");
@@ -166,8 +170,7 @@ int main(int argc, char* argv[])
 			break;
 		}
 
-		// one of the threads are ended
-		// so, we will close the program (softly)
+		// one thread finished action, close program (softly) 
 		g_soft_exit_flag = true;
 		wait_for_threads(thread_handels, 2, false, 5000, true);
 		break;
@@ -188,7 +191,6 @@ int main(int argc, char* argv[])
 	// on exit
 	client_teardown();
 }
-
 
 /************************************
 * static implementation             *
@@ -221,6 +223,9 @@ static void open_log_file(void)
 	ASSERT(g_client_log_file != NULL, "Error: failed opening output file\n");
 }
 
+/// Description: check for exit request from client.  
+/// Parameters: none.
+/// Return: none.
 static void handle_connection_menu(void)
 {
 	char* message = "Choose what to do next:\n1.Try to reconnect\n2.Exit\n";
@@ -231,6 +236,9 @@ static void handle_connection_menu(void)
 		g_exit_flag = true;
 }
 
+/// Description: try to connect to server.
+/// Parameters: none.
+/// Return: true if connection succeed and false if connection denied.
 static bool wait_for_connection(void)
 {
 	while (g_connection_state != connection_succeed)
@@ -241,6 +249,12 @@ static bool wait_for_connection(void)
 	return true;
 }
 
+/// Description: check user's response to main menu. if invalid value - resend the main menu and wait for valid response. 
+/// Parameters: 
+///		[in] acceptable_str - valid user responses. 
+///		[in] array_length - number of valid user responses. 
+///		[in] message - main menu message. 
+/// Return: none.
 static int validate_menu_input(char* acceptable_str[], int array_length, char* message)
 {
 	do
@@ -261,6 +275,11 @@ static int validate_menu_input(char* acceptable_str[], int array_length, char* m
 	} while (1);
 }
 
+/// Description: check user's game move validity. if invalid value - resend the next move message and wait for valid response. 
+/// Parameters: 
+///		[in] accepatble_move - valid user game move. 
+///		[in] message - next move message. 
+/// Return: none.
 static void vaildate_user_move(char* accepatble_move, char* message)
 {
 	static char boom[] = "boom";
@@ -284,6 +303,10 @@ static void vaildate_user_move(char* accepatble_move, char* message)
 	} while (1);
 }
 
+/// Description: change string from upper case to lower case.
+/// Parameters: 
+///		[in] str - upper case string. 
+/// Return: lower case string.
 static char* string_to_lower(char* str)
 {
 	for (int i = 0; i < (int)strlen(str); i++)
@@ -369,6 +392,10 @@ static void data_received_handle(s_message_params message_params)
 	}
 }
 
+/// Description: write message to log file.
+/// Parameters: 
+///		[in] msg - message to write to log file. 
+/// Return: none.
 static void log_printf(char* msg)
 {
 	printf(msg);

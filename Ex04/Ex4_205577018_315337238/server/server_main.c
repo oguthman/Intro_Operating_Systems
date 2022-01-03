@@ -85,7 +85,15 @@ static void close_all(HANDLE* handles, SOCKET server_socket, s_client_data* clie
 ************************************/
 // TODO: EXIT COMMAND TO EXIT SERVER
 // TODO: MAKE SURE TO CHECK EVERY CREATE NEW THREAD
+// TODO: GRACEFULL SHUTDOWN
+// TODO: CHECK FREE IN GENERAL(SOCKETS AND ALLOCATIONS)
+// TODO: ASSERTS
 
+/// Description: initiate values, initiate server socket, create server threads. 
+/// Parameters: 
+///		[in] argc - number of arguments. 
+///		[in] argv - arguments list. 
+/// Return: true if succeeded or false otherwise.
 int main(int argc, char* argv[])
 {
 	parse_arguments(argc, argv);
@@ -107,7 +115,8 @@ int main(int argc, char* argv[])
 		printf("Error: faild waiting on threads\n");
 	}
 	//TODO: GRACEFULL SHUTDOWN
-	// free all allocation & close handles (Threads, Mutex, Semaphores & Events)
+
+	// free all allocation & close handles (Threads, Mutex, Semaphores)
 	close_all(g_handles, server_socket, g_client_data_array, server_handles);
 }
 
@@ -126,6 +135,9 @@ static void parse_arguments(int argc, char* argv[])
 	g_port = (uint16_t)strtol(argv[1], NULL, 10);
 }
 
+/// Description: initialize all relevant variables.
+/// Parameters: none.
+/// Return: none.
 static void server_init() 
 {
 	g_start_game_barrier_counter = 0;
@@ -140,6 +152,10 @@ static void server_init()
 	g_game_data.game_counter = 0;
 }
 
+/// Description: server listens to accept new clients and creates new thread for each client.  
+/// Parameters: 
+///		[in] lpParam - parameters: server socket. 
+/// Return: DWORD 0 if thread routine succeeded or 1 otherwise.
 static DWORD WINAPI server_listen_routine(LPVOID lpParam)
 {
 	SOCKET server_socket = *((SOCKET*)lpParam);
@@ -204,8 +220,9 @@ static DWORD WINAPI server_listen_routine(LPVOID lpParam)
 	return 0;
 }
 
-// exit server when written "exit" in server console
-// return 0 - exit occured
+/// Description: check if user wrote "exit" on server console.  
+/// Parameters: none.
+/// Return: DWORD 0 if thread routine succeeded or 1 otherwise.
 static DWORD WINAPI server_exit_routine(LPVOID lpParam)
 {
 	char server_console_buffer[50];
@@ -217,6 +234,10 @@ static DWORD WINAPI server_exit_routine(LPVOID lpParam)
 	return 0;
 }
 
+/// Description: handle game events - message transfer between server and clients, client disconnect event.
+/// Parameters: 
+///		[in] lpParam - client_data: client's username and socket.
+/// Return: DWORD 0 if thread routine succeeded or 1 otherwise.
 static DWORD WINAPI client_thread_routine(LPVOID lpParam)
 {
 	// parsing inputs
@@ -275,6 +296,11 @@ static DWORD WINAPI client_thread_routine(LPVOID lpParam)
 	return 0;
 }
 
+/// Description: find available slot in thread handles array.
+/// Parameters: 
+///		[in] handles - array of thread handles.
+///		[out] thread_index - free slot in handles array.
+/// Return: true if available slot found and false otherwise.
 static bool find_available_thread(HANDLE* handles, int8_t* thread_index)
 {
 	for (uint8_t i = 0; i < NUMBER_OF_ACTIVE_CONNECTIONS; i++)
@@ -305,6 +331,11 @@ static bool find_available_thread(HANDLE* handles, int8_t* thread_index)
 	return true;
 }
 
+/// Description: set players' turn according to order of connection to server. 
+/// Parameters: 
+///		[in] handles - array of thread handles.
+///		[in] player_name
+/// Return: none.
 static void decide_first_player(HANDLE* handles, char* player_name)
 {
 	// no user connected yet
@@ -325,6 +356,13 @@ static void decide_first_player(HANDLE* handles, char* player_name)
 	}
 }
 
+/// Description: exit protocol - close mutexes, sockets and handles.  
+/// Parameters: 
+///		[in] handles - array of client thread handles.
+///		[in] server_socket
+///		[in] client_data - client's username and socket.
+///		[in] server_handles - array of server thread handles.
+/// Return: none.
 static void close_all(HANDLE* handles, SOCKET server_socket, s_client_data* client_data, HANDLE* server_handles)
 {
 	game_tear_down();

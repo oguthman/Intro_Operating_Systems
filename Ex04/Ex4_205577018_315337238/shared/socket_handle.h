@@ -18,7 +18,6 @@ ALL RIGHTS RESERVED
 #define __SOCKET_HANDLE_H__
 
 
-
 /************************************
 *      include                      *
 ************************************/
@@ -33,7 +32,7 @@ ALL RIGHTS RESERVED
 /************************************
 *      definitions                 *
 ************************************/
-#define MAX_PARAMS_ARGUMENTS			4
+#define MAX_PARAMS_ARGUMENTS	4
 
 /************************************
 *       types                       *
@@ -59,8 +58,19 @@ typedef struct {
 /************************************
 *       API                         *
 ************************************/
+/// Description: open socket for client or server. 
+/// Parameters: 
+///		[in] type - socket type. 
+///		[in] ip
+///		[in] port
+/// Return: socket handle.
 SOCKET Socket_Init(e_socket_type type, char* ip, uint16_t port);
 
+/// Description: handle sent message. 
+/// Parameters: 
+///		[in] socket - socket handle. 
+///		[in] message_params - message_type, message parameters, number of parameters.
+/// Return: transfer result.
 e_transfer_result Socket_Send(SOCKET socket, s_message_params message_params);
 
 /// Description: build a message string from message params.  
@@ -70,17 +80,26 @@ e_transfer_result Socket_Send(SOCKET socket, s_message_params message_params);
 /// Return: none.
 bool Socket_BuildBufferFromMessageParams(s_message_params message_params, char** buffer);
 
-/// <summary>
-/// 
-/// </summary>
-/// <param name="socket"></param>
-/// <param name="p_message_type"></param>
-/// <param name="params">return allocated list of param, need to free them outside</param>
-/// <returns></returns>
+/// Description: handle sent message. 
+/// Parameters: 
+///		[in] main_socket - socket handle. 
+///		[in] message_params - message_type, message parameters, number of parameters.
+///		[in] timeout - message timeout.
+/// Return: transfer result.
 e_transfer_result Socket_Receive(SOCKET main_socket, s_message_params* message_params, uint32_t timeout);
 
+/// Description: socket shutdown and socket cleanup.  
+/// Parameters: 
+///		[in] socket - socket handle.
+///		[in] socket_only - flag to perform only socket_cleanup
+/// Return: none.
 void Socket_TearDown(SOCKET socket, bool socket_only);
 
+/// Description: close parameters array.  
+/// Parameters: 
+///		[in] params
+///		[in] number_of_params
+/// Return: none.
 void Socket_FreeParamsArray(char* params[], uint32_t number_of_params);
 
 #endif //__SOCKET_HANDLE_H__

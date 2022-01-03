@@ -238,19 +238,28 @@ void Socket_FreeParamsArray(char* params[], uint32_t number_of_params)
 		if (params[i] != NULL) // handle warning
 			free(params[i]);
 	}
-	
-	//free(params);
 }
 
 /************************************
 * static implementation             *
 ************************************/
+/// Description: 
+/// Parameters: 
+///		[in] type - socket type. 
+///		[in] ip
+///		[in] port
+/// Return: socket handle.
 static void wsa_cleanup(SOCKET main_socket, bool socket_only)		// entering socket just for compilation reasons (ASSERT) & socket_only
 {
 	if (WSACleanup() == SOCKET_ERROR)
 		printf("Failed to close Winsocket, error %ld.\n", WSAGetLastError());
 }
 
+/// Description: socket cleanup.  
+/// Parameters: 
+///		[in] main_socket - socket handle.
+///		[in] socket_only - flag to perform only socket_cleanup
+/// Return: none.
 static void socket_cleanup(SOCKET main_socket, bool socket_only)
 {
 	if (closesocket(main_socket) == SOCKET_ERROR)
@@ -259,6 +268,12 @@ static void socket_cleanup(SOCKET main_socket, bool socket_only)
 		wsa_cleanup(main_socket, false);
 }
 
+/// Description: send buffer handle.  
+/// Parameters: 
+///		[in] main_socket - socket handle.
+///		[in] buffer - buffer to send.
+///		[in] bytes_to_send - number of bytes to send.
+/// Return: transfer result.
 static e_transfer_result send_buffer(SOCKET main_socket, const char* buffer, uint32_t bytes_to_send)
 {
 	const char* p_current_buffer = buffer;
@@ -282,6 +297,12 @@ static e_transfer_result send_buffer(SOCKET main_socket, const char* buffer, uin
 	return transfer_succeeded;
 }
 
+/// Description: receive buffer handle.  
+/// Parameters: 
+///		[in] main_socket - socket handle.
+///		[in] bytes_to_send - number of bytes to be received.
+///		[out] buffer - buffer to be filled with received message.
+/// Return: transfer result.
 static e_transfer_result receive_buffer(SOCKET main_socket, char* buffer, uint32_t bytes_to_receive)
 {
 	char* p_current_buffer = buffer;

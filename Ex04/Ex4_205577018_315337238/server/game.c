@@ -122,7 +122,7 @@ bool game_routine(s_client_data* client_data)
 		send_message_params.params[0] = g_game_data->player_turn == 1 ? g_game_data->first_player_name : g_game_data->second_player_name;
 		Socket_Send(client_data->client_socket, send_message_params);
 
-		// if this is my turn
+		// my turn
 		if (!strcmp(client_data->username, send_message_params.params[0]))
 		{
 			// send SERVER_MOVE_REQUEST
@@ -205,8 +205,6 @@ bool game_logic(char* user_move)
 		boom = true;
 	}
 
-	// TODO: maybe need to check valid user input.
-
 	if (boom)
 	{
 		if (!strcmp("boom", user_move)) return true;
@@ -229,6 +227,9 @@ void game_tear_down()
 /************************************
 * static implementation             *
 ************************************/
+/// Description: check if user's game move contains '7'.
+/// Parameters: none.
+/// Return: true if '7' is found in user's game move and false otherwise.
 static bool find_seven()
 {
 	int message_length = snprintf(NULL, 0, "%d", g_game_data->game_counter);

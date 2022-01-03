@@ -30,7 +30,7 @@ ALL RIGHTS RESERVED
 /************************************
 *      definitions                 *
 ************************************/
-#define USERNAME_MAX_LENGTH				20
+#define USERNAME_MAX_LENGTH		20
 
 /************************************
 *       types                       *
@@ -56,14 +56,42 @@ typedef struct {
 /************************************
 *       API                         *
 ************************************/
+/// Description: initialize all relevant variables.
+/// Parameters: 
+///		[in] game_data - struct of the game data. 
+/// Return: none.
 void game_init(s_game_data* game_data);
 
+/// Description: wait on number of threads to complete an action.
+/// Parameters: 
+///		[in] counter - counts how many threads finished the action. 
+/// Return: true if succeeded and false otherwise.
 bool game_barrier(uint8_t* counter);
+
+/// Description: check if received the expected message.
+/// Parameters: 
+///		[in] client_socket
+///		[in] expected_message_type - expected client message 
+///		[out] received_message_params
+///		[in] timeout - socket receive timeout. 
+/// Return: true if transfer was successful and the receive message was the expected message, and false otherwise.
 bool check_received_message(SOCKET client_socket, e_message_type expected_message_type, s_message_params* received_message_params, uint32_t timeout);
+
+/// Description: game routine - message transfer between server and clients while game is on.
+/// Parameters: 
+///		[in] client_data - struct that contains client's username and socket.
+/// Return: true if no errors occured and false otherwise.
 bool game_routine(s_client_data* client_data);
 
-// return true if the game is still on, false if player lost in this turn.
+/// Description: check user's game move according to the rules of "seven boom".
+/// Parameters: 
+///		[in] user_move - client's game move.
+/// Return: true if the game is still on, false if player lost in this turn.
 bool game_logic(char* user_move);
+
+/// Description: exit protocol - close mutex and semaphore.  
+/// Parameters: none.
+/// Return: none.
 void game_tear_down();
 
 #endif //__GAME_H__
