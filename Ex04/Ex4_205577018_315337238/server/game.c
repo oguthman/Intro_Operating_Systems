@@ -51,24 +51,42 @@ ALL RIGHTS RESERVED
 /************************************
 *      variables                    *
 ************************************/
-static HANDLE g_barrier_mutex;//SIGNALED
+static HANDLE g_barrier_mutex; //SIGNALED
 static HANDLE g_barrier_semaphore;
 static uint8_t g_game_barrier_counter;
+
+static s_game_data* g_game_data;
 
 /************************************
 *      static functions             *
 ************************************/
-static void game_init();
 static bool find_seven();
 
 /************************************
 *       API implementation          *
 ************************************/
+void game_init(s_game_data* game_data)
+{
+	g_barrier_mutex = create_mutex(true);
+	ASSERT(g_barrier_mutex != NULL, "Error: failed creating mutex. Exiting\n");
+
+	g_barrier_semaphore = create_semaphore(0, NUMBER_OF_ACTIVE_CONNECTIONS);
+	ASSERT(g_barrier_semaphore != NULL, "Error: failed creating semaphore. Exiting\n");
+
+	g_game_barrier_counter = 0;
+	g_game_data = game_data;
+}
+
 bool game_barrier(uint8_t* counter)
 {
 	DWORD wait_code = WaitForSingleObject(g_barrier_mutex, WAIT_FOR_OPPENET_TIMEOUT);
-	if (wait_code != WAIT_OBJECT_0)
+	if (wait_code == WAIT_TIMEOUT)
 		return false;
+	else if (wait_code != WAIT_OBJECT_0)
+	{
+		printf("Error waiting for barrier mutex (%d)\n", wait_code);
+		return false;
+	}
 
 	// critical area
 	(*counter)++;
@@ -96,12 +114,12 @@ bool check_received_message(SOCKET client_socket, e_message_type expected_messag
 bool game_routine(s_client_data* client_data)
 {
 	uint8_t game_barrier_counter = 0;
-	while (gs_game_data.game_is_on)
+	while (g_game_data->game_is_on)
 	{
 		s_message_params received_message_params = { .message_type = MESSAGE_TYPE_UNKNOWN };
 		// send TURN_SWITCH
 		s_message_params send_message_params = { .message_type = MESSAGE_TYPE_TURN_SWITCH, .params_count = 1 };
-		send_message_params.params[0] = gs_game_data.player_turn == 1 ? gs_game_data.first_player_name : gs_game_data.second_player_name;
+		send_message_params.params[0] = g_game_data->player_turn == 1 ? g_game_data->first_player_name : g_game_data->second_player_name;
 		Socket_Send(client_data->client_socket, send_message_params);
 
 		// if this is my turn
@@ -124,41 +142,41 @@ bool game_routine(s_client_data* client_data)
 
 			// check player's move
 			if (received_message_params.params != NULL)
-				gs_game_data.player_move = received_message_params.params[0];
-			gs_game_data.game_is_on = game_logic(gs_game_data.player_move);
+				g_game_data->player_move = received_message_params.params[0];
+			g_game_data->game_is_on = game_logic(g_game_data->player_move);
 
 			// set other player name as the winner
-			if (!gs_game_data.game_is_on)
-				gs_game_data.winner = gs_game_data.player_turn == 1 ? gs_game_data.second_player_name : gs_game_data.first_player_name;
+			if (!g_game_data->game_is_on)
+				g_game_data->winner = g_game_data->player_turn == 1 ? g_game_data->second_player_name : g_game_data->first_player_name;
 
 			// release semaphore
-			THREAD_ASSERT(ReleaseSemaphore(gs_game_data.semaphore_game_routine, 1, NULL) == true, "Error: failed releasing semaphore. %d\n", GetLastError());
+			THREAD_ASSERT(ReleaseSemaphore(g_game_data->semaphore_game_routine, 1, NULL) == true, "Error: failed releasing semaphore. %d\n", GetLastError());
 		}
 		else // other player turn
 		{
 			// wait for player move
-			DWORD wait_code = WaitForSingleObject(gs_game_data.semaphore_game_routine, WAIT_FOR_OPPENET_TIMEOUT);
+			DWORD wait_code = WaitForSingleObject(g_game_data->semaphore_game_routine, WAIT_FOR_OPPENET_TIMEOUT);
 			if (wait_code != WAIT_OBJECT_0)
 				return false;
 
 			send_message_params.message_type = MESSAGE_TYPE_GAME_VIEW;
 			send_message_params.params_count = 3;
-			send_message_params.params[1] = gs_game_data.player_move;
-			send_message_params.params[2] = gs_game_data.game_is_on ? "CONT" : "END";
+			send_message_params.params[1] = g_game_data->player_move;
+			send_message_params.params[2] = g_game_data->game_is_on ? "CONT" : "END";
 
 			// send GAME_VIEW
 			Socket_Send(client_data->client_socket, send_message_params);
 
 			// switch turnss
-			gs_game_data.player_turn = gs_game_data.player_turn == 1 ? 2 : 1;
+			g_game_data->player_turn = g_game_data->player_turn == 1 ? 2 : 1;
 		}
 
 		// game ended
-		if (!gs_game_data.game_is_on)
+		if (!g_game_data->game_is_on)
 		{
 			send_message_params.message_type = MESSAGE_TYPE_GAME_ENDED;
 			send_message_params.params_count = 1;
-			send_message_params.params[0] = gs_game_data.winner;
+			send_message_params.params[0] = g_game_data->winner;
 			// send GAME_ENDED to winner (other player)
 			Socket_Send(client_data->client_socket, send_message_params);
 			break;
@@ -180,9 +198,9 @@ bool game_logic(char* user_move)
 	bool seven = false;
 
 	// update game counter 
-	gs_game_data.game_counter++;
+	g_game_data->game_counter++;
 
-	if ((gs_game_data.game_counter % 7) == 0 || find_seven())
+	if ((g_game_data->game_counter % 7) == 0 || find_seven())
 	{
 		boom = true;
 	}
@@ -197,7 +215,7 @@ bool game_logic(char* user_move)
 	else
 	{
 		uint32_t number = strtol(user_move, NULL, 10);
-		if (number == gs_game_data.game_counter) return true;
+		if (number == g_game_data->game_counter) return true;
 	}
 	return false;
 }
@@ -211,27 +229,16 @@ void game_tear_down()
 /************************************
 * static implementation             *
 ************************************/
-static void game_init()
-{
-	g_barrier_mutex = create_mutex(true);
-	ASSERT(g_barrier_mutex != NULL, "Error: failed creating mutex. Exiting\n");
-
-	g_barrier_semaphore = create_semaphore(0, NUMBER_OF_ACTIVE_CONNECTIONS);
-	ASSERT(g_barrier_semaphore != NULL, "Error: failed creating semaphore. Exiting\n");
-
-	g_game_barrier_counter = 0;
-}
-
 static bool find_seven()
 {
-	int message_length = snprintf(NULL, 0, "%d", gs_game_data.game_counter);
+	int message_length = snprintf(NULL, 0, "%d", g_game_data->game_counter);
 	char* buffer = malloc((message_length + 1) * sizeof(char));
 	if (NULL == buffer)
 	{
 		printf("Error: failed allocating buffer for message\n");
 		return false;
 	}
-	snprintf(buffer, message_length + 1, "%d", gs_game_data.game_counter);
+	snprintf(buffer, message_length + 1, "%d", g_game_data->game_counter);
 
 	for (uint32_t i = 0; i < strlen(buffer); i++)
 	{

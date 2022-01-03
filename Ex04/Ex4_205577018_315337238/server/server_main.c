@@ -66,6 +66,7 @@ static uint16_t g_port;
 s_client_data g_client_data_array[NUMBER_OF_ACTIVE_CONNECTIONS];
 HANDLE g_handles[NUMBER_OF_ACTIVE_CONNECTIONS] = { NULL, NULL };
 static uint8_t g_start_game_barrier_counter;
+static s_game_data g_game_data;
 
 /************************************
 *      static functions             *
@@ -89,6 +90,7 @@ int main(int argc, char* argv[])
 {
 	parse_arguments(argc, argv);
 	server_init();
+	game_init(&g_game_data);
 
 	SOCKET server_socket = Socket_Init(socket_server, SERVER_IP, g_port);
 	ASSERT(server_socket != INVALID_SOCKET, "Error: server can't open socket\n");		//TODO: exit?
@@ -128,14 +130,14 @@ static void server_init()
 {
 	g_start_game_barrier_counter = 0;
 
-	gs_game_data.mutex_game_update = create_mutex(true);
-	ASSERT(gs_game_data.mutex_game_update != NULL, "Error: failed creating mutex. Exiting\n");
+	g_game_data.mutex_game_update = create_mutex(true);
+	ASSERT(g_game_data.mutex_game_update != NULL, "Error: failed creating mutex. Exiting\n");
 
-	gs_game_data.semaphore_game_routine = create_semaphore(0, 1);
-	ASSERT(gs_game_data.semaphore_game_routine != NULL, "Error: failed creating semaphore. Exiting\n");
+	g_game_data.semaphore_game_routine = create_semaphore(0, 1);
+	ASSERT(g_game_data.semaphore_game_routine != NULL, "Error: failed creating semaphore. Exiting\n");
 
-	gs_game_data.player_turn = 1;
-	gs_game_data.game_counter = 0;
+	g_game_data.player_turn = 1;
+	g_game_data.game_counter = 0;
 }
 
 static DWORD WINAPI server_listen_routine(LPVOID lpParam)
@@ -248,7 +250,7 @@ static DWORD WINAPI client_thread_routine(LPVOID lpParam)
 		// send MESSAGE_TYPE_GAME_STARTED
 		message_params.message_type = MESSAGE_TYPE_GAME_STARTED;
 		Socket_Send(client_data->client_socket, message_params);
-		gs_game_data.game_is_on = true;
+		g_game_data.game_is_on = true;
 
 		// game routine
 		if (!game_routine(client_data))
@@ -260,8 +262,8 @@ static DWORD WINAPI client_thread_routine(LPVOID lpParam)
 		}
 
 		// reset game parameters to start a new game 
-		gs_game_data.game_counter = 0;
-		gs_game_data.player_turn = 1;
+		g_game_data.game_counter = 0;
+		g_game_data.player_turn = 1;
 		Socket_FreeParamsArray(received_message_params.params, received_message_params.params_count);
 	}
 
@@ -307,27 +309,27 @@ static void decide_first_player(HANDLE* handles, char* player_name)
 {
 	// no user connected yet
 	if (handles[0] == NULL && handles[1] == NULL)
-		strcpy(gs_game_data.first_player_name, player_name);
+		strcpy(g_game_data.first_player_name, player_name);
 	
 	// first user disconnected
 	else if (handles[0] == NULL && handles[1] != NULL)
 	{
-		strcpy(gs_game_data.first_player_name, gs_game_data.second_player_name);
-		strcpy(gs_game_data.second_player_name, player_name);
+		strcpy(g_game_data.first_player_name, g_game_data.second_player_name);
+		strcpy(g_game_data.second_player_name, player_name);
 	}
 	
 	// second user disconnected or second user first connection
 	else
 	{
-		strcpy(gs_game_data.second_player_name, player_name);
+		strcpy(g_game_data.second_player_name, player_name);
 	}
 }
 
 static void close_all(HANDLE* handles, SOCKET server_socket, s_client_data* client_data, HANDLE* server_handles)
 {
 	game_tear_down();
-	CloseHandle(gs_game_data.mutex_game_routine);
-	CloseHandle(gs_game_data.mutex_game_update);
+	CloseHandle(g_game_data.mutex_game_routine);
+	CloseHandle(g_game_data.mutex_game_update);
 
 	for (int8_t i = 0; i < NUMBER_OF_ACTIVE_CONNECTIONS; i++)
 	{

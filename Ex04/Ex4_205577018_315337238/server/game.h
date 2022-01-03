@@ -35,7 +35,7 @@ ALL RIGHTS RESERVED
 /************************************
 *       types                       *
 ************************************/
-static struct {
+typedef struct {
 	bool game_is_on;
 	uint32_t game_counter;
 	char first_player_name[USERNAME_MAX_LENGTH + 1];
@@ -46,7 +46,7 @@ static struct {
 	HANDLE mutex_game_update;
 	HANDLE mutex_game_routine;
 	HANDLE semaphore_game_routine;
-} gs_game_data;
+} s_game_data;
 
 typedef struct {
 	char username[USERNAME_MAX_LENGTH + 1];
@@ -56,6 +56,8 @@ typedef struct {
 /************************************
 *       API                         *
 ************************************/
+void game_init(s_game_data* game_data);
+
 bool game_barrier(uint8_t* counter);
 bool check_received_message(SOCKET client_socket, e_message_type expected_message_type, s_message_params* received_message_params, uint32_t timeout);
 bool game_routine(s_client_data* client_data);

@@ -55,7 +55,8 @@ ALL RIGHTS RESERVED
 #define LOG_PRINTF(msg, ...)																\
 	do {																					\
 		printf(msg, __VA_ARGS__);															\
-		File_Printf(g_client_log_file, msg, __VA_ARGS__);									\
+		if (g_client_log_file != NULL)														\
+			File_Printf(g_client_log_file, msg, __VA_ARGS__);								\
 	} while (0);
 
 /************************************
@@ -91,7 +92,7 @@ static void handle_connection_menu(void);
 static bool wait_for_connection(void);
 static int validate_menu_input(char* acceptable_str[], int array_length, char* message);
 static char* string_to_lower(char* str);
-static void vaildate_user_move(char** accepatble_move, char* message);
+static void vaildate_user_move(char* accepatble_move, char* message);
 static void data_received_handle(s_message_params params);
 
 /************************************
@@ -152,8 +153,7 @@ int main(int argc, char* argv[])
 		if (!wait_for_connection())
 		{
 			// access denied, start again
-			shutdown(g_client_socket, SD_SEND);
-
+			Socket_TearDown(g_client_socket, true);
 			handle_connection_menu();
 			continue;
 		}
@@ -261,7 +261,7 @@ static int validate_menu_input(char* acceptable_str[], int array_length, char* m
 	} while (1);
 }
 
-static void vaildate_user_move(char** accepatble_move, char* message)
+static void vaildate_user_move(char* accepatble_move, char* message)
 {
 	static char boom[] = "boom";
 	do
@@ -276,7 +276,7 @@ static void vaildate_user_move(char** accepatble_move, char* message)
 		// check if input is 'boom'
 		if (!strcmp(string_to_lower(input), boom) || strspn(input, "0123456789") == strlen(input))
 		{
-			strcpy(*accepatble_move, string_to_lower(input));
+			strcpy(accepatble_move, string_to_lower(input));
 			return;
 		}
 
@@ -340,8 +340,8 @@ static void data_received_handle(s_message_params message_params)
 		case MESSAGE_TYPE_SERVER_MOVE_REQUEST:
 		{
 			char* message = "Enter the next number or boom:\n";
-			char send_string[256];
-			vaildate_user_move((char**)&send_string, message);
+			char send_string[256] = "";
+			vaildate_user_move(send_string, message);
 			
 			// send user move
 			s_message_params send_message_params = { .message_type = MESSAGE_TYPE_CLIENT_PLAYER_MOVE, .params_count = 1 };
