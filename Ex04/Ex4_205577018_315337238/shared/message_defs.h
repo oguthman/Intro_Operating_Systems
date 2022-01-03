@@ -55,7 +55,7 @@ typedef enum {
 *       API                         *
 ************************************/
 char* get_message_str(e_message_type message_type);
-
+e_message_type get_message_type(char* message_str);
 
 
 

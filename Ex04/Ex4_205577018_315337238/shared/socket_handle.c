@@ -105,16 +105,17 @@ SOCKET Socket_Init(e_socket_type type, char* ip, uint16_t port)
 e_transfer_result Socket_Send(SOCKET main_socket, e_message_type message_type, int params_count, char* params[])
 {
 	e_transfer_result transfer_result;
+	char* message_str = get_message_str(message_type);
 	// creating the string
 	int message_length;
 	if (params_count == 0)
-		message_length = snprintf(NULL, 0, "%d\n", message_type);
+		message_length = snprintf(NULL, 0, "%s\n", message_str);
 	else if (params_count == 1)
-		message_length = snprintf(NULL, 0, "%d:%s\n", message_type, params[0]);
+		message_length = snprintf(NULL, 0, "%s:%s\n", message_str, params[0]);
 	else if (params_count == 2)
-		message_length = snprintf(NULL, 0, "%d:%s;%s\n", message_type, params[0], params[1]);
+		message_length = snprintf(NULL, 0, "%s:%s;%s\n", message_str, params[0], params[1]);
 	else 
-		message_length = snprintf(NULL, 0, "%d:%s;%s;%s\n", message_type, params[0], params[1], params[2]);
+		message_length = snprintf(NULL, 0, "%s:%s;%s;%s\n", message_str, params[0], params[1], params[2]);
 
 	char* buffer = malloc((message_length) * sizeof(char));
 	if (NULL == buffer)
@@ -124,13 +125,13 @@ e_transfer_result Socket_Send(SOCKET main_socket, e_message_type message_type, i
 	}
 
 	if (params_count == 0)
-		snprintf(buffer, message_length, "%d\n", message_type);
+		snprintf(buffer, message_length, "%s\n", message_str);
 	else if (params_count == 1)
-		snprintf(buffer, message_length, "%d:%s\n", message_type, params[0]);
+		snprintf(buffer, message_length, "%s:%s\n", message_str, params[0]);
 	else if (params_count == 2)
-		snprintf(buffer, message_length, "%d:%s;%s\n", message_type, params[0], params[1]);
+		snprintf(buffer, message_length, "%s:%s;%s\n", message_str, params[0], params[1]);
 	else 
-		snprintf(buffer, message_length, "%d:%s;%s;%s\n", message_type, params[0], params[1], params[2]);
+		snprintf(buffer, message_length, "%s:%s;%s;%s\n", message_str, params[0], params[1], params[2]);
 
 	// sending the packet length
 	int string_size = (int)(strlen(buffer) + 1); // terminating zero also sent	
@@ -141,6 +142,9 @@ e_transfer_result Socket_Send(SOCKET main_socket, e_message_type message_type, i
 		free(buffer);
 		return transfer_result;
 	}
+	
+	// TODO: Remove
+	printf("send buffer: '%s'\n", buffer);
 
 	// sending the real packet
 	transfer_result = send_buffer(main_socket, (const char*)(buffer), string_size);
@@ -178,8 +182,11 @@ e_transfer_result Socket_Receive(SOCKET main_socket, s_message_params* message_p
 		return transfer_result;
 	}
 
+	// TODO: Remove
+	printf("recv buffer: '%s'\n", buffer);
+
 	char* message_type_str = strtok(buffer, ":");
-	message_params->message_type = (e_message_type)strtol(message_type_str, NULL, 10);
+	message_params->message_type = get_message_type(message_type_str);
 
 	// get params
 	message_params->params_count = 0;

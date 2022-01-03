@@ -18,6 +18,9 @@ ALL RIGHTS RESERVED
 *      include                      *
 ************************************/
 #include "message_defs.h"
+#include <stdint.h>
+#include <string.h>
+
 /************************************
 *      definitions                 *
 ************************************/
@@ -29,7 +32,7 @@ ALL RIGHTS RESERVED
 /************************************
 *      variables                    *
 ************************************/
-static char* message_str[] = {
+static char* message_str_array[] = {
 	// client
 	"CLIENT_REQUEST",
 	"CLIENT_VERSUS",
@@ -59,8 +62,20 @@ static char* message_str[] = {
 ************************************/
 char* get_message_str(e_message_type message_type)
 {
-	return message_str[message_type];
+	return message_str_array[message_type];
 }
+
+e_message_type get_message_type(char* message_str)
+{
+	for (uint16_t i = 0; i <= MESSAGE_TYPE_UNKNOWN; i++)
+	{
+		if (!strcmp(message_str, message_str_array[i]))
+			return i;
+	}
+
+	return MESSAGE_TYPE_UNKNOWN;
+}
+
 
 /************************************
 * static implementation             *
