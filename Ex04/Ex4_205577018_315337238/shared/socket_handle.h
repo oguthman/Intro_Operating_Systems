@@ -46,7 +46,8 @@ typedef enum {
 typedef enum { 
 	transfer_succeeded,
 	transfer_failed,
-	transfer_disconnected
+	transfer_disconnected,
+	transfer_timeout
 } e_transfer_result;
 
 typedef struct {

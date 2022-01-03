@@ -131,7 +131,7 @@ DWORD WINAPI client_receive_routine(LPVOID lpParam)
 		// wait to receive new transaction
 		// happy path
 		s_message_params message_params = { MESSAGE_TYPE_UNKNOWN };
-		uint32_t timeout = 10;	//TODO: change
+		uint32_t timeout = 15 * 1000; // 15sec	//TODO: change
 		e_transfer_result result = Socket_Receive(*g_client_socket, &message_params, timeout);
 
 		if (result == transfer_disconnected)
@@ -140,6 +140,9 @@ DWORD WINAPI client_receive_routine(LPVOID lpParam)
 			printf("socket disconnected\n");
 			Socket_FreeParamsArray(message_params.params, message_params.params_count);
 			break;
+		}
+		if (result == transfer_timeout) {
+			printf("socket timeout\n");
 		}
 
 		//callback - move the info to ui

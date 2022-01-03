@@ -48,10 +48,11 @@ ALL RIGHTS RESERVED
 		}																					\
 	} while (0);
 
-#define SERVER_IP						"127.0.0.1"
-#define NUMBER_OF_ACTIVE_CONNECTIONS	2
-#define USERNAME_MAX_LENGTH				20
-#define WAIT_FOR_OPPENET_TIMEOUT		INFINITE//TODO: CHANGE ACCORDING TO INSTRUCTIONS
+#define SERVER_IP								"127.0.0.1"
+#define NUMBER_OF_ACTIVE_CONNECTIONS			2
+#define USERNAME_MAX_LENGTH						20
+#define WAIT_FOR_CLIENT_OPERATION_TIMEOUT		INFINITE
+#define WAIT_FOR_OPPENET_TIMEOUT				(15000)		// 15sec //TODO: CHANGE ACCORDING TO INSTRUCTIONS
 
 /************************************
 *       types                       *
@@ -146,7 +147,7 @@ int main(int argc, char* argv[])
 
 		// receive new client username
 		s_message_params received_message_params;
-		if (!check_received_message(accept_socket, MESSAGE_TYPE_CLIENT_REQUEST, &received_message_params, 0)) // TODO: Add timeout
+		if (!check_received_message(accept_socket, MESSAGE_TYPE_CLIENT_REQUEST, &received_message_params, WAIT_FOR_OPPENET_TIMEOUT)) // TODO: Add timeout
 		{
 			// TODO: gracefull exit
 			// reject client
@@ -225,7 +226,7 @@ static DWORD WINAPI client_thread_routine(LPVOID lpParam)
 		Socket_Send(client_data->client_socket, MESSAGE_TYPE_SERVER_MAIN_MENU, 0, NULL);
 		
 		// wait for CLIENT_VERSUS
-		if (!check_received_message(client_data->client_socket, MESSAGE_TYPE_CLIENT_VERSUS, &received_message_params, -1)) // TODO: Fix timeout
+		if (!check_received_message(client_data->client_socket, MESSAGE_TYPE_CLIENT_VERSUS, &received_message_params, WAIT_FOR_CLIENT_OPERATION_TIMEOUT)) // TODO: Fix timeout
 		{
 			// client chose to disconnect from server
 			// TODO: REMOVE

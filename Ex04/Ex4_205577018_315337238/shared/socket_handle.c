@@ -151,6 +151,9 @@ e_transfer_result Socket_Send(SOCKET main_socket, e_message_type message_type, i
 // TODO: implement timeout
 e_transfer_result Socket_Receive(SOCKET main_socket, s_message_params* message_params, uint32_t timeout)
 {
+	// setting timeout
+	setsockopt(main_socket, SOL_SOCKET, SO_RCVTIMEO, (const char*)&timeout, sizeof(timeout));
+
 	e_transfer_result transfer_result;
 	// read buffer length
 	int message_length;
@@ -270,7 +273,11 @@ static e_transfer_result receive_buffer(SOCKET main_socket, char* buffer, uint32
 		bytes_transferred = recv(main_socket, p_current_buffer, remaining_bytes_to_receive, 0);
 		if (bytes_transferred == SOCKET_ERROR)
 		{
-			printf("recv() failed, error %d\n", WSAGetLastError());
+			int last_error = WSAGetLastError();
+			if (last_error == WSAETIMEDOUT)
+				return transfer_timeout;
+
+			printf("recv() failed, error %d\n", last_error);
 			return transfer_failed;
 		}
 		else if (bytes_transferred == 0)
@@ -281,10 +288,4 @@ static e_transfer_result receive_buffer(SOCKET main_socket, char* buffer, uint32
 	}
 
 	return transfer_succeeded;
-}
-
-static bool polling_timeout(SOCKET main_socket, int timeout)
-{
-	WSAPOLLFD fd[1] = { {.fd = main_socket } };
-	return WSAPoll(fd, 1, timeout) != 0;
 }
