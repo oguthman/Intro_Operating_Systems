@@ -112,7 +112,7 @@ DWORD WINAPI client_send_routine(LPVOID lpParam)
 		s_message_params* p_params = queue_pop(&gs_sending_vars.transaction_queue);
 		
 		// sending packet through socket
-		e_transfer_result result = Socket_Send(*g_client_socket, p_params->message_type, p_params->params_count, p_params->params);
+		e_transfer_result result = Socket_Send(*g_client_socket, *p_params);
 		if (result == transfer_failed)
 		{
 			//TODO: NOT HAPPY PATH

@@ -61,7 +61,14 @@ typedef struct {
 ************************************/
 SOCKET Socket_Init(e_socket_type type, char* ip, uint16_t port);
 
-e_transfer_result Socket_Send(SOCKET socket, e_message_type message_type, int params_count, char* params[]);
+e_transfer_result Socket_Send(SOCKET socket, s_message_params message_params);
+
+/// Description: build a message string from message params.  
+/// Parameters: 
+///		[in] message_params - the params to build the string. 
+///		[in] buffer - pointer to the buffer string. 
+/// Return: none.
+bool Socket_BuildBufferFromMessageParams(s_message_params message_params, char** buffer);
 
 /// <summary>
 /// 

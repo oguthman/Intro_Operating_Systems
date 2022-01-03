@@ -102,36 +102,11 @@ SOCKET Socket_Init(e_socket_type type, char* ip, uint16_t port)
 	return main_socket;
 }
 
-e_transfer_result Socket_Send(SOCKET main_socket, e_message_type message_type, int params_count, char* params[])
+e_transfer_result Socket_Send(SOCKET main_socket, s_message_params message_params)
 {
 	e_transfer_result transfer_result;
-	char* message_str = get_message_str(message_type);
-	// creating the string
-	int message_length;
-	if (params_count == 0)
-		message_length = snprintf(NULL, 0, "%s\n", message_str);
-	else if (params_count == 1)
-		message_length = snprintf(NULL, 0, "%s:%s\n", message_str, params[0]);
-	else if (params_count == 2)
-		message_length = snprintf(NULL, 0, "%s:%s;%s\n", message_str, params[0], params[1]);
-	else 
-		message_length = snprintf(NULL, 0, "%s:%s;%s;%s\n", message_str, params[0], params[1], params[2]);
-
-	char* buffer = malloc((message_length) * sizeof(char));
-	if (NULL == buffer)
-	{
-		printf("Error: failed allocating buffer for message\n");
-		return transfer_failed;
-	}
-
-	if (params_count == 0)
-		snprintf(buffer, message_length, "%s\n", message_str);
-	else if (params_count == 1)
-		snprintf(buffer, message_length, "%s:%s\n", message_str, params[0]);
-	else if (params_count == 2)
-		snprintf(buffer, message_length, "%s:%s;%s\n", message_str, params[0], params[1]);
-	else 
-		snprintf(buffer, message_length, "%s:%s;%s;%s\n", message_str, params[0], params[1], params[2]);
+	char* buffer = NULL;
+	Socket_BuildBufferFromMessageParams(message_params, &buffer);
 
 	// sending the packet length
 	int string_size = (int)(strlen(buffer) + 1); // terminating zero also sent	
@@ -150,6 +125,38 @@ e_transfer_result Socket_Send(SOCKET main_socket, e_message_type message_type, i
 	transfer_result = send_buffer(main_socket, (const char*)(buffer), string_size);
 	free(buffer);
 	return transfer_result;
+}
+
+bool Socket_BuildBufferFromMessageParams(s_message_params message_params, char** buffer)
+{
+	char* message_str = get_message_str(message_params.message_type);
+	// creating the string
+	int message_length;
+	if (message_params.params_count == 0)
+		message_length = snprintf(NULL, 0, "%s\n", message_str);
+	else if (message_params.params_count == 1)
+		message_length = snprintf(NULL, 0, "%s:%s\n", message_str, message_params.params[0]);
+	else if (message_params.params_count == 2)
+		message_length = snprintf(NULL, 0, "%s:%s;%s\n", message_str, message_params.params[0], message_params.params[1]);
+	else
+		message_length = snprintf(NULL, 0, "%s:%s;%s;%s\n", message_str, message_params.params[0], message_params.params[1], message_params.params[2]);
+
+	*buffer = malloc((message_length) * sizeof(char));
+	if (NULL == *buffer)
+	{
+		printf("Error: failed allocating buffer for message\n");
+		return transfer_failed;
+	}
+
+	if (message_params.params_count == 0)
+		snprintf(*buffer, message_length, "%s\n", message_str);
+	else if (message_params.params_count == 1)
+		snprintf(*buffer, message_length, "%s:%s\n", message_str, message_params.params[0]);
+	else if (message_params.params_count == 2)
+		snprintf(*buffer, message_length, "%s:%s;%s\n", message_str, message_params.params[0], message_params.params[1]);
+	else
+		snprintf(*buffer, message_length, "%s:%s;%s;%s\n", message_str, message_params.params[0], message_params.params[1], message_params.params[2]);
+
 }
 
 // TODO: implement timeout

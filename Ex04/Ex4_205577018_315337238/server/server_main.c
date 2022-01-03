@@ -141,7 +141,8 @@ int main(int argc, char* argv[])
 			// TODO: remove
 			printf("Rejecting client\n");
 			// send access denied to client
-			Socket_Send(accept_socket, MESSAGE_TYPE_SERVER_DENIED, 0, NULL);
+			s_message_params message_params = { .message_type = MESSAGE_TYPE_SERVER_DENIED, .params_count = 0 };
+			Socket_Send(accept_socket, message_params);
 			// reject client
 			Socket_TearDown(accept_socket, true);
 			continue;
@@ -159,7 +160,8 @@ int main(int argc, char* argv[])
 		}
 
 		// approve new client
-		Socket_Send(accept_socket, MESSAGE_TYPE_SERVER_APPROVED, 0, NULL);
+		s_message_params message_params = { .message_type = MESSAGE_TYPE_SERVER_APPROVED, .params_count = 0 };
+		Socket_Send(accept_socket, message_params);
 		
 		decide_first_player(handles, received_message_params.params[0]);
 
@@ -225,7 +227,8 @@ static DWORD WINAPI client_thread_routine(LPVOID lpParam)
 	while (true)
 	{
 		// send main menu
-		Socket_Send(client_data->client_socket, MESSAGE_TYPE_SERVER_MAIN_MENU, 0, NULL);
+		s_message_params message_params = { .message_type = MESSAGE_TYPE_SERVER_MAIN_MENU, .params_count = 0 };
+		Socket_Send(client_data->client_socket, message_params);
 		
 		// wait for CLIENT_VERSUS
 		if (!check_received_message(client_data->client_socket, MESSAGE_TYPE_CLIENT_VERSUS, &received_message_params, WAIT_FOR_CLIENT_OPERATION_TIMEOUT)) // TODO: Fix timeout
@@ -240,12 +243,14 @@ static DWORD WINAPI client_thread_routine(LPVOID lpParam)
 		if (!game_barrier(&g_start_game_barrier_counter))
 		{
 			// send SERVER_NO_OPPONENTS
-			Socket_Send(client_data->client_socket, MESSAGE_TYPE_SERVER_NO_OPPONENTS, 0, NULL);
+			message_params.message_type = MESSAGE_TYPE_SERVER_NO_OPPONENTS;
+			Socket_Send(client_data->client_socket, message_params);
 			continue;
 		}
 
 		// send MESSAGE_TYPE_GAME_STARTED
-		Socket_Send(client_data->client_socket, MESSAGE_TYPE_GAME_STARTED, 0, NULL);
+		message_params.message_type = MESSAGE_TYPE_GAME_STARTED;
+		Socket_Send(client_data->client_socket, message_params);
 		gs_game_data.game_is_on = true;
 
 		// game routine
@@ -307,15 +312,17 @@ static bool game_routine(s_client_data* client_data)
 	{
 		s_message_params received_message_params = { .message_type = MESSAGE_TYPE_UNKNOWN };
 		// send TURN_SWITCH
-		char* send_message_params[3];
-		send_message_params[0] = gs_game_data.player_turn == 1 ? gs_game_data.first_player_name : gs_game_data.second_player_name;
-		Socket_Send(client_data->client_socket, MESSAGE_TYPE_TURN_SWITCH, 1, send_message_params);
+		s_message_params send_message_params = { .message_type = MESSAGE_TYPE_TURN_SWITCH, .params_count = 1 };
+		send_message_params.params[0] = gs_game_data.player_turn == 1 ? gs_game_data.first_player_name : gs_game_data.second_player_name;
+		Socket_Send(client_data->client_socket, send_message_params);
 
 		// if this is my turn
-		if (!strcmp(client_data->username, send_message_params[0]))
+		if (!strcmp(client_data->username, send_message_params.params[0]))
 		{
 			// send SERVER_MOVE_REQUEST
-			Socket_Send(client_data->client_socket, MESSAGE_TYPE_SERVER_MOVE_REQUEST, 0, NULL);
+			send_message_params.message_type = MESSAGE_TYPE_SERVER_MOVE_REQUEST;
+			send_message_params.params_count = 0;
+			Socket_Send(client_data->client_socket, send_message_params);
 
 			// wait for response CLIENT_PLAYER_MOVE
 			if (!check_received_message(client_data->client_socket, MESSAGE_TYPE_CLIENT_PLAYER_MOVE, &received_message_params, WAIT_FOR_OPPENET_TIMEOUT)) // TODO: Fix timeout
@@ -353,22 +360,26 @@ static bool game_routine(s_client_data* client_data)
 			if (wait_code != WAIT_OBJECT_0)
 				return false;
 
-			send_message_params[1] = gs_game_data.player_move;
-			send_message_params[2] = gs_game_data.game_is_on ? "CONT" : "END";
+			send_message_params.message_type = MESSAGE_TYPE_GAME_VIEW;
+			send_message_params.params_count = 3;
+			send_message_params.params[1] = gs_game_data.player_move;
+			send_message_params.params[2] = gs_game_data.game_is_on ? "CONT" : "END";
 
 			// send GAME_VIEW
-			Socket_Send(client_data->client_socket, MESSAGE_TYPE_GAME_VIEW, 3, send_message_params);
+			Socket_Send(client_data->client_socket, send_message_params);
 
-			// switch turns
+			// switch turnss
 			gs_game_data.player_turn = gs_game_data.player_turn == 1 ? 2 : 1;
 		}
 
 		// game ended
 		if (!gs_game_data.game_is_on)
 		{
-			send_message_params[0] = gs_game_data.winner;
+			send_message_params.message_type = MESSAGE_TYPE_GAME_ENDED;
+			send_message_params.params_count = 1;
+			send_message_params.params[0] = gs_game_data.winner;
 			// send GAME_ENDED to winner (other player)
-			Socket_Send(client_data->client_socket, MESSAGE_TYPE_GAME_ENDED, 1, send_message_params);
+			Socket_Send(client_data->client_socket, send_message_params);
 			break;
 		}
 
