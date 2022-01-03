@@ -55,13 +55,17 @@ ALL RIGHTS RESERVED
 #define LOG_PRINTF(msg, ...)																\
 	do {																					\
 		printf(msg, __VA_ARGS__);															\
-		FILE_PRINTF(g_client_log_file, msg, __VA_ARGS__);									\
+		File_Printf(g_client_log_file, msg, __VA_ARGS__);									\
 	} while (0);
-
 
 /************************************
 *       types                       *
 ************************************/
+typedef enum {
+	connection_idle,
+	connection_succeed,
+	connection_denied
+} e_connection_state;
 
 /************************************
 *      variables                    *
@@ -73,6 +77,7 @@ static struct {
 } gs_inputs;
 
 static SOCKET g_client_socket;
+static e_connection_state g_connection_state;
 static bool g_exit_flag;
 static bool g_soft_exit_flag;
 static File g_client_log_file;
@@ -83,6 +88,7 @@ static File g_client_log_file;
 static void parse_arguments(int argc, char* argv[]);
 static void open_log_file(void);
 static void handle_connection_menu(void);
+static bool wait_for_connection(void);
 static int validate_menu_input(char* acceptable_str[], int array_length, char* message);
 static char* string_to_lower(char* str);
 static void vaildate_user_move(char** accepatble_move, char* message);
@@ -103,6 +109,7 @@ int main(int argc, char* argv[])
 	// init modules
 	g_exit_flag = false;
 	g_soft_exit_flag = false;
+	g_connection_state = connection_idle;
 	HANDLE thread_handels[2] = { NULL, NULL };
 
 	// init client send receive module
@@ -136,15 +143,25 @@ int main(int argc, char* argv[])
 		thread_handels[1] = create_new_thread(client_receive_routine, NULL);
 		if (thread_handels[0] == NULL || thread_handels[1] == NULL)
 		{
-			printf("Error: failed creating a thread\n");
+			LOG_PRINTF("Error: failed creating a thread\n");
 			close_handles(thread_handels, 2);
 			break;
+		}
+
+		// waiting for connection succeed
+		if (!wait_for_connection())
+		{
+			// access denied, start again
+			shutdown(g_client_socket, SD_SEND);
+
+			handle_connection_menu();
+			continue;
 		}
 
 		// waiting for threads to end
 		if (!wait_for_threads(thread_handels, 2, false, INFINITE, false))
 		{
-			printf("Error: wait for threads return error\n");
+			LOG_PRINTF("Error: wait for threads return error\n");
 			close_handles(thread_handels, 2);
 			break;
 		}
@@ -158,8 +175,8 @@ int main(int argc, char* argv[])
 	
 	// check receive thread exit code to determine if disconnected
 	DWORD exitcode;
-	if (GetExitCodeThread(thread_handels[1], &exitcode))
-		printf("Error: GetExitCodeThread return error\n");
+	if (!GetExitCodeThread(thread_handels[1], &exitcode))
+		LOG_PRINTF("Error: GetExitCodeThread return error\n");
 
 	if (exitcode == transfer_disconnected)
 		LOG_PRINTF("Server disconnected. Exiting.\n");
@@ -212,6 +229,16 @@ static void handle_connection_menu(void)
 	// check if need to exit
 	if (validate_menu_input(acceptable_chars, 2, message) == 2)
 		g_exit_flag = true;
+}
+
+static bool wait_for_connection(void)
+{
+	while (g_connection_state != connection_succeed)
+	{
+		if (g_connection_state == connection_denied)
+			return false;
+	}
+	return true;
 }
 
 static int validate_menu_input(char* acceptable_str[], int array_length, char* message)
@@ -272,8 +299,11 @@ static void data_received_handle(s_message_params message_params)
 	// print to console
 	switch (message_params.message_type)
 	{
-		// case MESSAGE_TYPE_SERVER_APPROVED:
+		case MESSAGE_TYPE_SERVER_APPROVED:
+			g_connection_state = connection_succeed;
+			break;
 		case MESSAGE_TYPE_SERVER_DENIED:
+			g_connection_state = connection_denied;
 			printf("Server on %s:%d denied the connection request.\n", gs_inputs.server_ip, gs_inputs.server_port);
 			break;
 		// TODO: check if needed, becuase I think the server always send MESSAGE_TYPE_SERVER_NO_OPPONENTS and than MESSAGE_TYPE_SERVER_MAIN_MENU
@@ -337,4 +367,10 @@ static void data_received_handle(s_message_params message_params)
 			printf("Opponent quit.\n");	//TODO: MAKE SURE THE PRINT IS CORRECT "Opponent quit .\n"
 			break;
 	}
+}
+
+static void log_printf(char* msg)
+{
+	printf(msg);
+	File_Write(g_client_log_file, msg, strlen(msg));
 }

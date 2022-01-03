@@ -161,7 +161,6 @@ int File_Write(File* file, char* buffer, int count);
 
 \return true if writing succeed.
 *****************************************************************************/
-bool File_Printf(File* file, _Printf_format_string_ char* format, ...);
-
+bool File_Printf(File* file, char* format, ...);
 
 #endif //__FILE_H__

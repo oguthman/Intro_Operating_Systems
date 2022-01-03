@@ -53,31 +53,21 @@ File* File_Open(char* fileName, char* mode)
         return NULL;
     }
     
-    // allocate variables.
-    int length = (int)(strlen(fileName) + 1);
-    wchar_t* file_name = malloc((length) * sizeof(wchar_t));
     File* source = (File*)malloc(sizeof(File));
-
-    if (file_name == NULL || source == NULL)
+    if (source == NULL)
     {
         printf("Error: failed allocating memory \n");
         return NULL;
     }
 
-    // cast file name to wchar_t
-    swprintf(file_name, length, L"%hs", fileName);
-
     // Open the source file
-    *source = CreateFile(file_name,               // name of the write
+    *source = CreateFile(fileName,               // name of the write
                          access,                  // open for writing
                          share,                   // do not share
                          NULL,                    // default security
                          disposition,             // create new file only
                          FILE_ATTRIBUTE_NORMAL,   // normal file
                          NULL);                   // no attr. template
-
-    // free file_name
-    free(file_name);
 
     // Check for error
     if (*source == INVALID_HANDLE_VALUE) {
@@ -175,12 +165,12 @@ int File_Write(File* file, char* buffer, int count)
     return bytesWritten;
 }
 
-bool File_Printf(File* file, _Printf_format_string_ char* format, ...) 
+bool File_Printf(File* file, char* format, ...)
 {
-    va_list _ArgList;
-    __crt_va_start(_ArgList, format);
+    va_list args_list;
+    va_start(args_list, format);
 
-    int length = snprintf(NULL, 0, format, _ArgList) + 1;
+    int length = vsnprintf(NULL, 0, format, args_list) + 1;
     char* buffer = malloc((length) * sizeof(char));
     if (NULL == buffer)
     {
@@ -188,7 +178,7 @@ bool File_Printf(File* file, _Printf_format_string_ char* format, ...)
         return 0;
     }
 
-    snprintf(buffer, length, format, _ArgList);
+    vsnprintf(buffer, length, format, args_list);
     if (!File_Write(file, buffer, (int)strlen(buffer)))
     {
         printf("Error: printf function failed\n");
@@ -196,7 +186,7 @@ bool File_Printf(File* file, _Printf_format_string_ char* format, ...)
         return false;
     }
 
-    __crt_va_end(_ArgList);
+    va_end(args_list);
     free(buffer);
     return true;
 }

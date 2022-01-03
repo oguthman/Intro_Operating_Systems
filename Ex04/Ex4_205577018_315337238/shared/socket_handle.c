@@ -220,6 +220,11 @@ e_transfer_result Socket_Receive(SOCKET main_socket, s_message_params* message_p
 void Socket_TearDown(SOCKET main_socket, bool socket_only)
 {
 	shutdown(main_socket, SD_SEND);
+	
+	s_message_params params;
+	if (Socket_Receive(main_socket, &params, 5000) != transfer_disconnected)
+		printf("didn't receive disconnection from the other side");
+
 	socket_cleanup(main_socket, socket_only);
 }
 
