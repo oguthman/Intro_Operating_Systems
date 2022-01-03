@@ -106,7 +106,8 @@ e_transfer_result Socket_Send(SOCKET main_socket, s_message_params message_param
 {
 	e_transfer_result transfer_result;
 	char* buffer = NULL;
-	Socket_BuildBufferFromMessageParams(message_params, &buffer);
+	if (!Socket_BuildBufferFromMessageParams(message_params, &buffer))
+		return transfer_failed;
 
 	// sending the packet length
 	int string_size = (int)(strlen(buffer) + 1); // terminating zero also sent	
@@ -145,7 +146,7 @@ bool Socket_BuildBufferFromMessageParams(s_message_params message_params, char**
 	if (NULL == *buffer)
 	{
 		printf("Error: failed allocating buffer for message\n");
-		return transfer_failed;
+		return false;
 	}
 
 	if (message_params.params_count == 0)
@@ -157,6 +158,7 @@ bool Socket_BuildBufferFromMessageParams(s_message_params message_params, char**
 	else
 		snprintf(*buffer, message_length, "%s:%s;%s;%s\n", message_str, message_params.params[0], message_params.params[1], message_params.params[2]);
 
+	return true;
 }
 
 // TODO: implement timeout
@@ -211,13 +213,13 @@ e_transfer_result Socket_Receive(SOCKET main_socket, s_message_params* message_p
 		message_type_str = strtok(NULL, ";");
 	}
 
-
 	free(buffer);
 	return transfer_result;
 }
 
 void Socket_TearDown(SOCKET main_socket, bool socket_only)
 {
+	shutdown(main_socket, SD_SEND);
 	socket_cleanup(main_socket, socket_only);
 }
 

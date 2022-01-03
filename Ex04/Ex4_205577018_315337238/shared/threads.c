@@ -72,13 +72,13 @@ HANDLE create_new_thread(LPTHREAD_START_ROUTINE p_function, LPVOID p_thread_para
 	return thread_handle;
 }
 
-bool wait_for_threads(HANDLE* handles, int number_of_active_handles)
+bool wait_for_threads(HANDLE* handles, int number_of_active_handles, bool wait_for_all, DWORD timeout, bool terminate)
 {
 	DWORD threads_status = WaitForMultipleObjects(
 		number_of_active_handles,		// number of arguments in handles array
 		handles,						// pointer to handles array
-		true,							// rather wait for all handles to finish or not
-		THREAD_TIMEOUT);				// how much time in msec to wait for first handle to finish
+		wait_for_all,					// rather wait for all handles to finish or not
+		timeout);						// how much time in msec to wait for first handle to finish
 
 	if (threads_status >= WAIT_OBJECT_0 && threads_status < WAIT_OBJECT_0 + number_of_active_handles)
 		return true;
@@ -86,17 +86,21 @@ bool wait_for_threads(HANDLE* handles, int number_of_active_handles)
 	{
 	case WAIT_TIMEOUT:
 	{
-		printf("All running threads didn't finish after %d ms. Terminationg all thereads\n", THREAD_TIMEOUT);
+		printf("All running threads didn't finish after %d ms.\n", timeout);
 
-		// Terminate all running threads
-		for (int i = 0; i < number_of_active_handles; i++)
+		if (terminate)
 		{
-			TerminateThread(handles[i], TERMINATE_ALL_THREADS_EXITCODE);
-			// close all handles in the end of main()
-		}
+			printf("Terminating all thereads\n");
+			// Terminate all running threads
+			for (int i = 0; i < number_of_active_handles; i++)
+			{
+				TerminateThread(handles[i], TERMINATE_ALL_THREADS_EXITCODE);
+				// close all handles in the end of main()
+			}
 
-		// Wait a few milliseconds for the process to terminate.
-		Sleep(10);
+			// Wait a few milliseconds for the process to terminate.
+			Sleep(10);
+		}
 		return false;
 	}
 	default:

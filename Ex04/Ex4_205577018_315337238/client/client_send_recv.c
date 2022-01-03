@@ -43,6 +43,7 @@ ALL RIGHTS RESERVED
 *      variables                    *
 ************************************/
 static SOCKET* g_client_socket;
+static bool* g_killing_me_softly_flag;
 
 static struct {
 	s_node* transaction_queue;
@@ -60,9 +61,10 @@ static struct {
 /************************************
 *       API implementation          *
 ************************************/
-void client_init_send_recv(SOCKET* client_socket)
+void client_init_send_recv(SOCKET* client_socket, bool* soft_kill_flag)
 {
 	g_client_socket = client_socket;
+	g_killing_me_softly_flag = soft_kill_flag;
 
 	// init sending
 	gs_sending_vars.send_event_handle = create_event_handle(true);
@@ -99,7 +101,7 @@ void client_add_transaction(s_message_params params)
 
 DWORD WINAPI client_send_routine(LPVOID lpParam)
 {
-	while (1)
+	while ((*g_killing_me_softly_flag) == false)
 	{
 		// waiting for new params to send
 		if (queue_is_empty(&gs_sending_vars.transaction_queue))
@@ -107,8 +109,11 @@ DWORD WINAPI client_send_routine(LPVOID lpParam)
 
 		// waiting for event
 		if (!wait_for_event(gs_sending_vars.send_event_handle))
+		{
+			*g_killing_me_softly_flag = true;
 			return 1;	//exitcode
-		
+		}
+
 		s_message_params* p_params = queue_pop(&gs_sending_vars.transaction_queue);
 		
 		// sending packet through socket
@@ -126,7 +131,7 @@ DWORD WINAPI client_send_routine(LPVOID lpParam)
 
 DWORD WINAPI client_receive_routine(LPVOID lpParam)
 {
-	while (1)
+	while ((*g_killing_me_softly_flag) == false)
 	{
 		// wait to receive new transaction
 		// happy path
@@ -134,15 +139,22 @@ DWORD WINAPI client_receive_routine(LPVOID lpParam)
 		uint32_t timeout = 15 * 1000; // 15sec	//TODO: change
 		e_transfer_result result = Socket_Receive(*g_client_socket, &message_params, timeout);
 
-		if (result == transfer_disconnected)
+		if (result == transfer_disconnected || result == transfer_failed)
 		{
-			// breaking the loop
-			printf("socket disconnected\n");
 			Socket_FreeParamsArray(message_params.params, message_params.params_count);
-			break;
+			*g_killing_me_softly_flag = true;
+
+			// breaking the loop
+			if (result == transfer_disconnected)
+				printf("server disconnected\n");
+			else 
+				printf("client socket failed\n");
+
+			return result;
 		}
-		if (result == transfer_timeout) {
-			printf("socket timeout\n");
+		else if (result == transfer_timeout) {
+			printf("client socket timeout\n");
+			// TODO: what to todo on timeout in client
 		}
 
 		//callback - move the info to ui
@@ -160,9 +172,15 @@ DWORD WINAPI client_receive_routine(LPVOID lpParam)
 void client_teardown()
 {
 	// free all queue items
+	while (!queue_is_empty(&gs_sending_vars.transaction_queue))
+	{
+		s_message_params* p_params = queue_pop(&gs_sending_vars.transaction_queue);
+		Socket_FreeParamsArray(p_params->params, p_params->params_count);
+	}
 
 	// close all handlers
-
+	CloseHandle(gs_sending_vars.send_event_handle);
+	Socket_TearDown(*g_client_socket, false);
 }
 
 /************************************

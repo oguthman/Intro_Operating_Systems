@@ -127,7 +127,7 @@ int main(int argc, char* argv[])
 	server_handles[1] = create_new_thread(server_exit_routine, NULL);
 	THREAD_ASSERT(server_handles[1] != NULL, "Error: failed creating a thread\n");
 
-	if (!wait_for_threads(server_handles, 2, false))
+	if (!wait_for_threads(server_handles, 2, false, INFINITE, true))
 	{
 		printf("Error: faild waiting on threads\n");
 	}
@@ -233,6 +233,7 @@ static DWORD WINAPI server_listen_routine(LPVOID lpParam)
 		Socket_FreeParamsArray(received_message_params.params, received_message_params.params_count);
 	}
 
+	return 0;
 }
 
 // exit server when written "exit" in server console
@@ -360,7 +361,7 @@ static bool game_routine(s_client_data* client_data)
 				// message didn't match to the expected
 				// TODO: REMOVE
 				printf("Response message didn't match to the expected '[%d] %s'\n", received_message_params.message_type, get_message_str(received_message_params.message_type));
-				// TODO: free the params
+				Socket_FreeParamsArray(received_message_params.params, received_message_params.params_count);
 				return false;
 			}
 
@@ -375,17 +376,10 @@ static bool game_routine(s_client_data* client_data)
 
 			// release semaphore
 			THREAD_ASSERT(ReleaseSemaphore(gs_game_data.semaphore_game_routine, 1, NULL) == true, "Error: failed releasing semaphore. %d\n", GetLastError());
-		
-			// release mutex
-			//THREAD_ASSERT(ReleaseMutex(gs_game_data.mutex_game_routine) == true, "Error: failed releasing mutex. %d\n", GetLastError());
 		}
 		else // other player turn
 		{
 			// wait for player move
-			/*DWORD wait_code = WaitForSingleObject(gs_game_data.mutex_game_routine, WAIT_FOR_OPPENET_TIMEOUT);
-			if (wait_code != WAIT_OBJECT_0)
-				return false;*/
-
 			DWORD wait_code = WaitForSingleObject(gs_game_data.semaphore_game_routine, WAIT_FOR_OPPENET_TIMEOUT);
 			if (wait_code != WAIT_OBJECT_0)
 				return false;

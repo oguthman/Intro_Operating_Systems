@@ -175,9 +175,12 @@ int File_Write(File* file, char* buffer, int count)
     return bytesWritten;
 }
 
-bool File_Printf(File* file, char* format, va_list args)
+bool File_Printf(File* file, _Printf_format_string_ char* format, ...) 
 {
-    int length = snprintf(NULL, 0, format, args) + 1;
+    va_list _ArgList;
+    __crt_va_start(_ArgList, format);
+
+    int length = snprintf(NULL, 0, format, _ArgList) + 1;
     char* buffer = malloc((length) * sizeof(char));
     if (NULL == buffer)
     {
@@ -185,7 +188,7 @@ bool File_Printf(File* file, char* format, va_list args)
         return 0;
     }
 
-    snprintf(buffer, length, format, args);
+    snprintf(buffer, length, format, _ArgList);
     if (!File_Write(file, buffer, (int)strlen(buffer)))
     {
         printf("Error: printf function failed\n");
@@ -193,6 +196,7 @@ bool File_Printf(File* file, char* format, va_list args)
         return false;
     }
 
+    __crt_va_end(_ArgList);
     free(buffer);
     return true;
 }

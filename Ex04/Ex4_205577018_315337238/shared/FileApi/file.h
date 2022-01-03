@@ -25,6 +25,22 @@ ALL RIGHTS RESERVED
 /************************************
 *      definitions                 *
 ************************************/
+#define FILE_PRINTF(file, format, ...)                                  \
+        int length = snprintf(NULL, 0, format, __VA_ARGS__) + 1;        \
+        char* buffer = malloc((length) * sizeof(char));                 \
+        if (NULL == buffer)                                             \
+        {                                                               \
+            printf("Error: failed allocating command \n");              \
+            return 0;                                                   \
+        }                                                               \
+        snprintf(buffer, length, format, __VA_ARGS__);                  \
+        if (!File_Write(file, buffer, (int)strlen(buffer)))             \
+        {                                                               \
+            printf("Error: printf function failed\n");                  \
+            free(buffer);                                               \
+            return false;                                               \
+        }                                                               \
+        free(buffer);
 
 /************************************
 *       types                       *
@@ -145,7 +161,7 @@ int File_Write(File* file, char* buffer, int count);
 
 \return true if writing succeed.
 *****************************************************************************/
-bool File_Printf(File* file, char* format, va_list args);
+bool File_Printf(File* file, _Printf_format_string_ char* format, ...);
 
 
 #endif //__FILE_H__
