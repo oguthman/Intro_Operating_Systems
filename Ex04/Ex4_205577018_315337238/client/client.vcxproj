@@ -139,6 +139,7 @@
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
+    <ClCompile Include="..\shared\FileApi\file.c" />
     <ClCompile Include="..\shared\message_defs.c" />
     <ClCompile Include="..\shared\queue.c" />
     <ClCompile Include="..\shared\socket_handle.c" />
@@ -147,6 +148,7 @@
     <ClCompile Include="client_send_recv.c" />
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="..\shared\FileApi\file.h" />
     <ClInclude Include="..\shared\message_defs.h" />
     <ClInclude Include="..\shared\queue.h" />
     <ClInclude Include="..\shared\socket_handle.h" />

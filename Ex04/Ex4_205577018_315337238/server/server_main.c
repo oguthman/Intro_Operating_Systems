@@ -25,6 +25,7 @@ ALL RIGHTS RESERVED
 //
 #include "../shared/socket_handle.h"
 #include "../shared/threads.h"
+#include "../shared/FileApi/file.h"
 
 /************************************
 *      definitions                 *
@@ -60,6 +61,7 @@ ALL RIGHTS RESERVED
 typedef struct {
 	char username[USERNAME_MAX_LENGTH+1];
 	SOCKET client_socket;
+
 } s_client_data;
 
 /************************************

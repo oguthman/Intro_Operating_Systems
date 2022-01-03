@@ -12,6 +12,12 @@
     <Filter Include="shared">
       <UniqueIdentifier>{28cdfe76-e8dc-4310-bb7c-767a0b590488}</UniqueIdentifier>
     </Filter>
+    <Filter Include="shared\inc">
+      <UniqueIdentifier>{093ca160-866d-42b7-94d9-e239ffda167d}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="shared\src">
+      <UniqueIdentifier>{2a1c22e2-6bd5-4fc0-897b-ab02a764c927}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="template.c">
@@ -20,14 +26,17 @@
     <ClCompile Include="server_main.c">
       <Filter>Source Files</Filter>
     </ClCompile>
+    <ClCompile Include="..\shared\message_defs.c">
+      <Filter>shared\src</Filter>
+    </ClCompile>
     <ClCompile Include="..\shared\socket_handle.c">
-      <Filter>shared</Filter>
+      <Filter>shared\src</Filter>
     </ClCompile>
     <ClCompile Include="..\shared\threads.c">
-      <Filter>shared</Filter>
+      <Filter>shared\src</Filter>
     </ClCompile>
-    <ClCompile Include="..\shared\message_defs.c">
-      <Filter>shared</Filter>
+    <ClCompile Include="..\shared\FileApi\file.c">
+      <Filter>shared\src</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>
@@ -35,13 +44,16 @@
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="..\shared\message_defs.h">
-      <Filter>shared</Filter>
+      <Filter>shared\inc</Filter>
     </ClInclude>
     <ClInclude Include="..\shared\socket_handle.h">
-      <Filter>shared</Filter>
+      <Filter>shared\inc</Filter>
     </ClInclude>
     <ClInclude Include="..\shared\threads.h">
-      <Filter>shared</Filter>
+      <Filter>shared\inc</Filter>
+    </ClInclude>
+    <ClInclude Include="..\shared\FileApi\file.h">
+      <Filter>shared\inc</Filter>
     </ClInclude>
   </ItemGroup>
 </Project>

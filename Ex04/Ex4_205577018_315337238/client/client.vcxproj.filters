@@ -12,6 +12,12 @@
     <Filter Include="shared">
       <UniqueIdentifier>{37e32e27-13f8-4aa9-b4a2-c0c64c41e732}</UniqueIdentifier>
     </Filter>
+    <Filter Include="shared\src">
+      <UniqueIdentifier>{99b29d5e-1f45-418e-8560-8629216f22d9}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="shared\inc">
+      <UniqueIdentifier>{7476d32a-baa5-46fc-bbea-2f2023572343}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="client_main.c">
@@ -21,16 +27,19 @@
       <Filter>Source Files</Filter>
     </ClCompile>
     <ClCompile Include="..\shared\queue.c">
-      <Filter>shared</Filter>
-    </ClCompile>
-    <ClCompile Include="..\shared\socket_handle.c">
-      <Filter>shared</Filter>
-    </ClCompile>
-    <ClCompile Include="..\shared\threads.c">
-      <Filter>shared</Filter>
+      <Filter>shared\src</Filter>
     </ClCompile>
     <ClCompile Include="..\shared\message_defs.c">
-      <Filter>shared</Filter>
+      <Filter>shared\src</Filter>
+    </ClCompile>
+    <ClCompile Include="..\shared\socket_handle.c">
+      <Filter>shared\src</Filter>
+    </ClCompile>
+    <ClCompile Include="..\shared\threads.c">
+      <Filter>shared\src</Filter>
+    </ClCompile>
+    <ClCompile Include="..\shared\FileApi\file.c">
+      <Filter>shared\src</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>
@@ -38,16 +47,19 @@
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="..\shared\message_defs.h">
-      <Filter>shared</Filter>
+      <Filter>shared\inc</Filter>
     </ClInclude>
     <ClInclude Include="..\shared\queue.h">
-      <Filter>shared</Filter>
+      <Filter>shared\inc</Filter>
     </ClInclude>
     <ClInclude Include="..\shared\socket_handle.h">
-      <Filter>shared</Filter>
+      <Filter>shared\inc</Filter>
     </ClInclude>
     <ClInclude Include="..\shared\threads.h">
-      <Filter>shared</Filter>
+      <Filter>shared\inc</Filter>
+    </ClInclude>
+    <ClInclude Include="..\shared\FileApi\file.h">
+      <Filter>shared\inc</Filter>
     </ClInclude>
   </ItemGroup>
 </Project>
