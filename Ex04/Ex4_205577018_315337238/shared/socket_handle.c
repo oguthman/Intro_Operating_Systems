@@ -45,6 +45,7 @@ typedef void (*func_ptr)(void*, bool);
 /************************************
 *      variables                    *
 ************************************/
+static printing_callback print_callback;
 
 /************************************
 *      static functions             *
@@ -121,14 +122,20 @@ e_transfer_result Socket_Send(SOCKET main_socket, s_message_params message_param
 		return transfer_result;
 	}
 	
-	// TODO: Remove
-	printf("send buffer: '%s'\n", buffer);
+	if (print_callback != NULL)
+		print_callback(main_socket, "sent", buffer);
 
 	// sending the real packet
 	transfer_result = send_buffer(main_socket, (const char*)(buffer), string_size);
 	free(buffer);
 	return transfer_result;
 }
+
+void Socket_BindSocketPrintCallback(printing_callback callback)
+{
+	print_callback = callback;
+}
+
 
 bool Socket_BuildBufferFromMessageParams(s_message_params message_params, char** buffer)
 {
@@ -193,8 +200,9 @@ e_transfer_result Socket_Receive(SOCKET main_socket, s_message_params* message_p
 		return transfer_result;
 	}
 
-	// TODO: Remove
-	printf("recv buffer: '%s'\n", buffer);
+	if (print_callback != NULL)
+		print_callback(main_socket, "received", buffer);
+
 
 	char* message_type_str = strtok(buffer, ":");
 	message_params->message_type = get_message_type(message_type_str);
@@ -205,8 +213,6 @@ e_transfer_result Socket_Receive(SOCKET main_socket, s_message_params* message_p
 	while (message_type_str != NULL)	// strtok returns NULL when there is no split left
 	{
 		message_params->params_count++;
-
-		// TODO: free params after done with them (params list & items)
 		
 		message_params->params[message_params->params_count - 1] = malloc((strlen(message_type_str) + 1) * sizeof(char));
 		ASSERT(message_params->params[message_params->params_count - 1] != NULL, socket_cleanup, main_socket, "Error: failed allocation memory\n");  // TODO: fix action
@@ -235,7 +241,7 @@ void Socket_FreeParamsArray(char* params[], uint32_t number_of_params)
 	if (params == NULL)
 		return;
 
-	for (uint32_t i = 0; i < number_of_params; i++) // TODO: maybe change to function
+	for (uint32_t i = 0; i < number_of_params; i++)
 	{
 		if (params[i] != NULL) // handle warning
 			free(params[i]);

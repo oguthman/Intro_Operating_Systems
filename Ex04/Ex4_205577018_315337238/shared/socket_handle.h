@@ -43,8 +43,8 @@ typedef enum {
 } e_socket_type;
 
 typedef enum { 
-	transfer_succeeded,
 	transfer_failed,
+	transfer_succeeded,
 	transfer_disconnected,
 	transfer_timeout
 } e_transfer_result;
@@ -54,6 +54,8 @@ typedef struct {
 	uint32_t params_count;
 	char* params[MAX_PARAMS_ARGUMENTS];
 } s_message_params;
+
+typedef void (*printing_callback)(SOCKET socket_origid, char* print_origid, char* string);
 
 /************************************
 *       API                         *
@@ -71,7 +73,13 @@ SOCKET Socket_Init(e_socket_type type, char* ip, uint16_t port);
 ///		[in] socket - socket handle. 
 ///		[in] message_params - message_type, message parameters, number of parameters.
 /// Return: transfer result.
-e_transfer_result Socket_Send(SOCKET socket, s_message_params message_params);
+e_transfer_result Socket_Send(SOCKET main_socket, s_message_params message_params);
+
+/// Description: bind a callback for printing the message through socket. 
+/// Parameters: 
+///		[in] callback - the callback handle.
+/// Return: none.
+void Socket_BindSocketPrintCallback(printing_callback callback);
 
 /// Description: build a message string from message params.  
 /// Parameters: 
@@ -93,7 +101,7 @@ e_transfer_result Socket_Receive(SOCKET main_socket, s_message_params* message_p
 ///		[in] socket - socket handle.
 ///		[in] socket_only - flag to perform only socket_cleanup
 /// Return: none.
-void Socket_TearDown(SOCKET socket, bool socket_only);
+void Socket_TearDown(SOCKET main_socket, bool socket_only);
 
 /// Description: close parameters array.  
 /// Parameters: 

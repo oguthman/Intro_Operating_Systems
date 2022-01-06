@@ -23,7 +23,7 @@ ALL RIGHTS RESERVED
 *      definitions                 *
 ************************************/
 #define NUMBER_OF_ACTIVE_CONNECTIONS			2
-#define WAIT_FOR_OPPENET_TIMEOUT				(15000)		// 15sec //TODO: CHANGE ACCORDING TO INSTRUCTIONS
+#define CLIENT_NON_USER_TIMEOUT				(15000)		// 15sec //TODO: CHANGE ACCORDING TO INSTRUCTIONS
 
 #define ASSERT(cond, msg, ...)														\
 	do {																			\
@@ -79,7 +79,7 @@ void game_init(s_game_data* game_data)
 
 bool game_barrier(uint8_t* counter)
 {
-	DWORD wait_code = WaitForSingleObject(g_barrier_mutex, WAIT_FOR_OPPENET_TIMEOUT);
+	DWORD wait_code = WaitForSingleObject(g_barrier_mutex, CLIENT_NON_USER_TIMEOUT);
 	if (wait_code == WAIT_TIMEOUT)
 		return false;
 	else if (wait_code != WAIT_OBJECT_0)
@@ -98,24 +98,24 @@ bool game_barrier(uint8_t* counter)
 	// end of critical area
 	THREAD_ASSERT(ReleaseMutex(g_barrier_mutex) == true, "Error: failed releasing mutex\n");
 
-	wait_code = WaitForSingleObject(g_barrier_semaphore, WAIT_FOR_OPPENET_TIMEOUT);
+	wait_code = WaitForSingleObject(g_barrier_semaphore, CLIENT_NON_USER_TIMEOUT);
 	if (wait_code != WAIT_OBJECT_0)
 		return false;
 
 	return true;
 }
 
-e_game_result check_received_message(SOCKET client_socket, e_message_type expected_message_type, s_message_params* received_message_params, uint32_t timeout)
+e_transfer_result check_received_message(SOCKET client_socket, e_message_type expected_message_type, s_message_params* received_message_params, uint32_t timeout)
 {
 	e_transfer_result result = Socket_Receive(client_socket, received_message_params, timeout);
 	if (result == transfer_succeeded && received_message_params->message_type == expected_message_type)
-		return game_succeed;
+		return transfer_succeeded;
 	if (result == transfer_timeout)
-		return game_client_timeout;
+		return transfer_timeout;
 	if (result == transfer_disconnected)
-		return game_client_disconnected;
+		return transfer_disconnected;
 
-	return game_failed;
+	return transfer_failed;
 }
 
 e_game_result game_routine(s_client_data* client_data)
@@ -138,11 +138,11 @@ e_game_result game_routine(s_client_data* client_data)
 			Socket_Send(client_data->client_socket, send_message_params);
 
 			// wait for response CLIENT_PLAYER_MOVE
-			e_game_result received_result = check_received_message(client_data->client_socket, MESSAGE_TYPE_CLIENT_PLAYER_MOVE, &received_message_params, WAIT_FOR_OPPENET_TIMEOUT); // TODO: Fix timeout
-			if (received_result != game_succeed)
+			e_transfer_result received_result = check_received_message(client_data->client_socket, MESSAGE_TYPE_CLIENT_PLAYER_MOVE, &received_message_params, INFINITE);
+			if (received_result != transfer_succeeded)
 			{
 				// message didn't match to the expected
-				if (received_result == game_failed)
+				if (received_result == transfer_succeeded)
 					printf("Response message didn't match to the expected '[%d] %s'\n", received_message_params.message_type, get_message_str(received_message_params.message_type));
 				Socket_FreeParamsArray(received_message_params.params, received_message_params.params_count);
 				return received_result;
@@ -163,24 +163,28 @@ e_game_result game_routine(s_client_data* client_data)
 		else // other player turn
 		{
 			// wait for player move
-			DWORD wait_code = WaitForSingleObject(g_game_data->semaphore_game_routine, WAIT_FOR_OPPENET_TIMEOUT);
+			DWORD wait_code = WaitForSingleObject(g_game_data->semaphore_game_routine, INFINITE);
 			if (wait_code != WAIT_OBJECT_0)
 				return game_failed;
-
-			send_message_params.message_type = MESSAGE_TYPE_GAME_VIEW;
-			send_message_params.params_count = 3;
-			send_message_params.params[1] = g_game_data->player_move;
-			send_message_params.params[2] = g_game_data->game_is_on ? "CONT" : "END";
-
-			// send GAME_VIEW
-			Socket_Send(client_data->client_socket, send_message_params);
 
 			// switch turnss
 			g_game_data->player_turn = g_game_data->player_turn == 1 ? 2 : 1;
 		}
 
+		if (g_game_data->player_disconnected)
+			break;
+
+		// game view
+		send_message_params.message_type = MESSAGE_TYPE_GAME_VIEW;
+		send_message_params.params_count = 3;
+		send_message_params.params[1] = g_game_data->player_move;
+		send_message_params.params[2] = g_game_data->game_is_on ? "CONT" : "END";
+
+		// send GAME_VIEW
+		Socket_Send(client_data->client_socket, send_message_params);
+
 		// game ended
-		if (!g_game_data->game_is_on)
+		if (!g_game_data->game_is_on && !g_game_data->player_disconnected)
 		{
 			send_message_params.message_type = MESSAGE_TYPE_GAME_ENDED;
 			send_message_params.params_count = 1;
@@ -197,11 +201,21 @@ e_game_result game_routine(s_client_data* client_data)
 		Socket_FreeParamsArray(received_message_params.params, received_message_params.params_count);
 	}
 
+	if (g_game_data->player_disconnected)
+	{
+		s_message_params send_message_params = { .message_type = MESSAGE_TYPE_SERVER_OPPONENT_QUIT, .params_count = 0 };
+		// send OPPONENT_QUIT to other player
+		Socket_Send(client_data->client_socket, send_message_params);
+	}
+
 	return game_succeed;
 }
 
 bool game_logic(char* user_move)
 {
+	if (user_move == NULL)
+		return false;
+	
 	bool boom = false;
 	bool seven = false;
 

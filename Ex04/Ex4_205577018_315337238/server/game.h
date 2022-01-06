@@ -26,6 +26,7 @@ ALL RIGHTS RESERVED
 
 #include "../shared/threads.h"
 #include "../shared/socket_handle.h"
+#include "../shared/FileApi/file.h"
 
 /************************************
 *      definitions                 *
@@ -46,11 +47,13 @@ typedef struct {
 	HANDLE mutex_game_update;
 	HANDLE mutex_game_routine;
 	HANDLE semaphore_game_routine;
+	bool player_disconnected;
 } s_game_data;
 
 typedef struct {
 	char username[USERNAME_MAX_LENGTH + 1];
 	SOCKET client_socket;
+	File client_thread_file;
 } s_client_data;
 
 typedef enum {
@@ -82,7 +85,7 @@ bool game_barrier(uint8_t* counter);
 ///		[out] received_message_params
 ///		[in] timeout - socket receive timeout. 
 /// Return: true if transfer was successful and the receive message was the expected message, and false otherwise.
-e_game_result check_received_message(SOCKET client_socket, e_message_type expected_message_type, s_message_params* received_message_params, uint32_t timeout);
+e_transfer_result check_received_message(SOCKET client_socket, e_message_type expected_message_type, s_message_params* received_message_params, uint32_t timeout);
 
 /// Description: game routine - message transfer between server and clients while game is on.
 /// Parameters: 

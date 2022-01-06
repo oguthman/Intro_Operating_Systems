@@ -81,8 +81,12 @@ File* File_Open(char* fileName, char* mode)
 
 void File_Close(File* file)
 {
+    if (file == NULL)
+        return;
+
     CloseHandle(*file);
     free(file);
+    file = NULL;
 }
 
 int File_Read(File* file, char* buffer, int count)

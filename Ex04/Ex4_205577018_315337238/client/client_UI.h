@@ -48,13 +48,13 @@ typedef void (*send_callback)(s_message_params* params, uint32_t timeout);
 /************************************
 *       API                         *
 ************************************/
-bool clientUI_init(bool* soft_kill_flag, e_connection_state* connection_state, s_server_data* server_data, File* client_log_file);
+bool ClientUI_Init(bool* soft_kill_flag, e_connection_state* connection_state, s_server_data* server_data, File* client_log_file);
 
-void clientUI_bind_send_callback(send_callback callback);
+void ClientUI_BindSendCallback(send_callback callback);
 
-bool clientUI_add_message(s_message_params params);
+bool ClientUI_AddMessage(s_message_params params);
 
-DWORD WINAPI clientUI_routine(LPVOID lpParam);
+DWORD WINAPI ClientUI_Routine(LPVOID lpParam);
 
 /// Description: check user's response to main menu. if invalid value - resend the main menu and wait for valid response. 
 /// Parameters: 
@@ -62,6 +62,6 @@ DWORD WINAPI clientUI_routine(LPVOID lpParam);
 ///		[in] array_length - number of valid user responses. 
 ///		[in] message - main menu message. 
 /// Return: none.
-int clientUI_validate_menu_input(char* acceptable_str[], int array_length, char* message);
+int ClientUI_ValidateMenuInput(char* acceptable_str[], int array_length, char* message);
 
 #endif //__CLIENT_UI_H__

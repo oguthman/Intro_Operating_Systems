@@ -1,7 +1,7 @@
 #define _CRT_SECURE_NO_WARNINGS
 /*!
 ******************************************************************************
-\file client_send_recv.c
+\file send_recv_routine.c
 \date 20 December 2021
 \authors Shahar Dorit Morag 315337238 & Ofir Guthman 205577018
 \project #4
@@ -19,14 +19,15 @@ ALL RIGHTS RESERVED
 *      include                      *
 ************************************/
 #include <stdio.h>
-#include "client_send_recv.h"
+//
+#include "send_recv_routine.h"
+//
 #include "../shared/queue.h"
 #include "../shared/threads.h"
 
 /************************************
 *      definitions                 *
 ************************************/
-// TODO: change return (exit)
 #define ASSERT(cond, msg, ...)								\
 	do {													\
 		if (!(cond)) {										\
@@ -63,7 +64,7 @@ static struct {
 /************************************
 *       API implementation          *
 ************************************/
-bool client_init_send_recv(SOCKET* client_socket, bool* soft_kill_flag)
+bool SendRecvRoutine_Init(SOCKET* client_socket, bool* soft_kill_flag)
 {
 	g_client_socket = client_socket;
 	g_killing_me_softly_flag = soft_kill_flag;
@@ -81,12 +82,12 @@ bool client_init_send_recv(SOCKET* client_socket, bool* soft_kill_flag)
 	return true;
 }
 
-void client_bind_callback(receive_callback callback)
+void SendRecvRoutine_BindCallback(receive_callback callback)
 {
 	gs_receiving_vars.callback = callback;
 }
 
-bool client_add_transaction(s_message_params params)
+bool SendRecvRoutine_AddTransaction(s_message_params params)
 {
 	s_message_params* p_params = malloc(sizeof(s_message_params));
 	ASSERT(p_params != NULL, "Error: falied allocating memory\n");
@@ -106,7 +107,7 @@ bool client_add_transaction(s_message_params params)
 	return true;
 }
 
-DWORD WINAPI client_send_routine(LPVOID lpParam)
+DWORD WINAPI SendRecvRoutine_SendRoutine(LPVOID lpParam)
 {
 	while ((*g_killing_me_softly_flag) == false)
 	{
@@ -139,7 +140,7 @@ DWORD WINAPI client_send_routine(LPVOID lpParam)
 	return 0; //TODO: temp - check if exit protocol needed
 }
 
-DWORD WINAPI client_receive_routine(LPVOID lpParam)
+DWORD WINAPI SendRecvRoutine_ReceiveRoutine(LPVOID lpParam)
 {
 	while ((*g_killing_me_softly_flag) == false)
 	{
@@ -155,22 +156,20 @@ DWORD WINAPI client_receive_routine(LPVOID lpParam)
 		uint32_t timeout = gs_receiving_vars.timeout;
 		e_transfer_result result = Socket_Receive(*g_client_socket, &message_params, timeout);
 
-		if (result == transfer_disconnected || result == transfer_failed)
+		if (result != transfer_succeeded)
 		{
 			Socket_FreeParamsArray(message_params.params, message_params.params_count);
 			*g_killing_me_softly_flag = true;
 
 			// breaking the loop
 			if (result == transfer_disconnected)
-				printf("server disconnected\n");
+				printf("server disconnected\n");	// TOOD: Remove
+			else if (result == transfer_timeout)
+				printf("client socket timeout\n");		// TOOD: Remove
 			else 
-				printf("client socket failed\n");
+				printf("client socket failed\n");	// TOOD: Remove
 
 			return result;
-		}
-		else if (result == transfer_timeout) {
-			printf("client socket timeout\n");
-			// TODO: what to todo on timeout in client
 		}
 
 		//callback - move the info to ui
@@ -185,7 +184,7 @@ DWORD WINAPI client_receive_routine(LPVOID lpParam)
 	return 0;
 }
 
-bool client_set_receive_event(bool set, uint32_t timeout)
+bool SendRecvRoutine_SetReceiveEvent(bool set, uint32_t timeout)
 {
 	gs_receiving_vars.timeout = timeout;
 
@@ -199,7 +198,7 @@ bool client_set_receive_event(bool set, uint32_t timeout)
 	return true;
 }
 
-void client_teardown()
+void SendRecvRoutine_Teardown()
 {
 	// free all queue items
 	while (!queue_is_empty(&gs_sending_vars.transaction_queue))

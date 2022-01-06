@@ -31,29 +31,35 @@ ALL RIGHTS RESERVED
 /************************************
 *      definitions                 *
 ************************************/
-#define ASSERT(cond, msg, ...)														\
-	do {																			\
-		if (!(cond)) {																\
-			printf("Assertion failed at file %s line %d: \n", __FILE__, __LINE__);	\
-			printf(msg, __VA_ARGS__);												\
-			exit (1);																\
-		}																			\
+#define ASSERT(cond, msg, ...)																\
+	do {																					\
+		if (!(cond)) {																		\
+			printf("Assertion failed at file %s line %d: \n", __FILE__, __LINE__);			\
+			printf(msg, __VA_ARGS__);														\
+			exit (1);																		\
+		}																					\
 	} while (0);
 
-// TODO: check return/exit condition
 #define THREAD_ASSERT(cond, msg, ...)														\
 	do {																					\
 		if (!(cond)) {																		\
 			printf("Thread Assertion failed at file %s line %d: \n", __FILE__, __LINE__);	\
 			printf(msg, __VA_ARGS__);														\
-			return false;																		\
+			return false;																	\
 		}																					\
 	} while (0);
 
+#define LOG_PRINTF(file, msg, ...)															\
+	do {																					\
+		printf(msg, __VA_ARGS__);															\
+		if (file != NULL)																	\
+			File_Printf(file, msg, __VA_ARGS__);											\
+	} while (0);
+
+
 #define SERVER_IP								"127.0.0.1"
 #define NUMBER_OF_ACTIVE_CONNECTIONS			2
-#define WAIT_FOR_CLIENT_OPERATION_TIMEOUT		INFINITE
-#define WAIT_FOR_OPPENET_TIMEOUT				(15000)		// 15sec //TODO: CHANGE ACCORDING TO INSTRUCTIONS
+#define CLIENT_NON_USER_TIMEOUT					(15000)			// 15sec
 
 /************************************
 *       types                       *
@@ -73,12 +79,17 @@ static s_game_data g_game_data;
 ************************************/
 static void parse_arguments(int argc, char* argv[]);
 static void server_init();
+//
+// routines
 static DWORD WINAPI server_listen_routine(LPVOID lpParam);
 static DWORD WINAPI server_exit_routine(LPVOID lpParam);
 static DWORD WINAPI client_thread_routine(LPVOID lpParam);
+//
+static bool open_log_file(File * file, char* username);
 static bool find_available_thread(HANDLE* handles, int8_t* thread_index);
 static void decide_first_player(HANDLE* handles, char* player_name);
-static void close_all(HANDLE* handles, SOCKET server_socket, s_client_data* client_data, HANDLE* server_handles);
+static void close_all(HANDLE* handles, HANDLE* server_handles, SOCKET server_socket, s_client_data* client_data);
+static void print_socket_data(SOCKET socker_origid, char* print_origid, char* string);
 
 /************************************
 *       API implementation          *
@@ -107,10 +118,14 @@ int main(int argc, char* argv[])
 
 	HANDLE server_handles[2];
 	server_handles[0] = create_new_thread(server_listen_routine, &server_socket);
-	THREAD_ASSERT(server_handles[0] != NULL, "Error: failed creating a thread\n");
-
 	server_handles[1] = create_new_thread(server_exit_routine, NULL);
-	THREAD_ASSERT(server_handles[1] != NULL, "Error: failed creating a thread\n");
+	
+	if (server_handles[0] == NULL || server_handles[1] == NULL)
+	{
+		printf("Error: failed creating a thread\n");
+		close_all(g_handles, server_handles, server_socket, g_client_data_array);
+		return 1;
+	}
 
 	if (!wait_for_threads(server_handles, 2, false, INFINITE, true))
 	{
@@ -119,7 +134,9 @@ int main(int argc, char* argv[])
 	//TODO: GRACEFULL SHUTDOWN
 
 	// free all allocation & close handles (Threads, Mutex, Semaphores)
-	close_all(g_handles, server_socket, g_client_data_array, server_handles);
+	close_all(g_handles, server_handles, server_socket, g_client_data_array);
+
+	return 0;
 }
 
 /************************************
@@ -166,7 +183,7 @@ static DWORD WINAPI server_listen_routine(LPVOID lpParam)
 	{
 		// accept new clients (wait for clients to connect)
 		SOCKET accept_socket = accept(server_socket, NULL, NULL);
-		ASSERT(accept_socket != INVALID_SOCKET, "Error: server can't open socket for client\n");		//TODO: exit?
+		THREAD_ASSERT(accept_socket != INVALID_SOCKET, "Error: server can't open socket for client\n");		//TODO: exit?
 		// TODO: remove
 		printf("Client has connected\n");
 
@@ -194,7 +211,7 @@ static DWORD WINAPI server_listen_routine(LPVOID lpParam)
 
 		// receive new client username
 		s_message_params received_message_params;
-		if (check_received_message(accept_socket, MESSAGE_TYPE_CLIENT_REQUEST, &received_message_params, WAIT_FOR_OPPENET_TIMEOUT) != game_succeed)
+		if (check_received_message(accept_socket, MESSAGE_TYPE_CLIENT_REQUEST, &received_message_params, CLIENT_NON_USER_TIMEOUT) != transfer_succeeded)
 		{
 			// TODO: gracefull exit
 			// reject client
@@ -202,6 +219,18 @@ static DWORD WINAPI server_listen_routine(LPVOID lpParam)
 			Socket_FreeParamsArray(received_message_params.params, received_message_params.params_count);
 			continue;
 		}
+
+		// open log file
+		if (!open_log_file(&(g_client_data_array[thread_index].client_thread_file), received_message_params.params[0]))
+		{
+			// failed to open file
+			printf("Error: open file has failed\n");
+			Socket_TearDown(accept_socket, true);
+			Socket_FreeParamsArray(received_message_params.params, received_message_params.params_count);
+			break;
+		}
+
+		Socket_BindSocketPrintCallback(print_socket_data);
 
 		// approve new client
 		s_message_params message_params = { .message_type = MESSAGE_TYPE_SERVER_APPROVED, .params_count = 0 };
@@ -213,7 +242,12 @@ static DWORD WINAPI server_listen_routine(LPVOID lpParam)
 		g_client_data_array[thread_index].client_socket = accept_socket;
 		strcpy(g_client_data_array[thread_index].username, received_message_params.params[0]);
 		g_handles[thread_index] = create_new_thread(client_thread_routine, &g_client_data_array[thread_index]);
-		THREAD_ASSERT(g_handles[thread_index] != NULL, "Error: failed creating a thread\n");
+		if (g_handles[thread_index] == NULL)
+		{
+			LOG_PRINTF(g_client_data_array[thread_index].client_thread_file, "Error: failed creating a thread\n");
+			Socket_FreeParamsArray(received_message_params.params, received_message_params.params_count);
+			return 1;
+		}
 
 		// free params
 		Socket_FreeParamsArray(received_message_params.params, received_message_params.params_count);
@@ -253,11 +287,11 @@ static DWORD WINAPI client_thread_routine(LPVOID lpParam)
 		Socket_Send(client_data->client_socket, message_params);
 		
 		// wait for CLIENT_VERSUS
-		if (check_received_message(client_data->client_socket, MESSAGE_TYPE_CLIENT_VERSUS, &received_message_params, WAIT_FOR_CLIENT_OPERATION_TIMEOUT) != game_succeed) // TODO: Fix timeout
+		if (check_received_message(client_data->client_socket, MESSAGE_TYPE_CLIENT_VERSUS, &received_message_params, INFINITE) != transfer_succeeded)
 		{
+			printf("Error: wait for CLIENT_VERSUS, receive (%d)\n", received_message_params.message_type); //TODO: Remove
 			// client chose to disconnect from server
-			// TODO: REMOVE
-			printf("client chose to disconnect from server '[%d] %s'\n", received_message_params.message_type, get_message_str(received_message_params.message_type));
+			LOG_PRINTF(client_data->client_thread_file, "Player disconnected. Exiting.\n");
 			break;
 		}
 
@@ -281,6 +315,15 @@ static DWORD WINAPI client_thread_routine(LPVOID lpParam)
 		e_game_result game_routine_result = game_routine(client_data);
 		if (game_routine_result != game_succeed)
 		{
+			if (ReleaseSemaphore(g_game_data.semaphore_game_routine, 1, NULL) == false)
+			{
+				LOG_PRINTF(client_data->client_thread_file, "Error: failed releasing semaphore. %d\n", GetLastError());
+				break;
+			}
+
+			g_game_data.player_disconnected = true;
+			g_game_data.game_is_on = false;
+
 			if (game_routine_result == game_client_timeout)
 			{
 				printf("Error: wait for client move timeout\n"); // TODO: REMOVE
@@ -293,7 +336,6 @@ static DWORD WINAPI client_thread_routine(LPVOID lpParam)
 			break;
 		}
 
-
 		// reset game parameters to start a new game 
 		g_game_data.game_counter = 0;
 		g_game_data.player_turn = 1;
@@ -304,8 +346,22 @@ static DWORD WINAPI client_thread_routine(LPVOID lpParam)
 	Socket_FreeParamsArray(received_message_params.params, received_message_params.params_count);
 	Socket_TearDown(client_data->client_socket, true);
 	client_data->client_socket = INVALID_SOCKET;	// to prevent double close socket
-
+	File_Close(client_data->client_thread_file);
 	return 0;
+}
+
+static bool open_log_file(File* file, char* username)
+{
+	int filename_length = snprintf(NULL, 0, "Thread_log_%s.txt\n", username);
+	char* file_name = malloc((filename_length) * sizeof(char));
+	THREAD_ASSERT(file_name != NULL, "Error: failed allocating buffer for message\n")
+
+	snprintf(file_name, filename_length, "Thread_log_%s.txt\n", username);
+	*file = File_Open(file_name, "w");
+	free(file_name);
+	THREAD_ASSERT(*file != NULL, "Error: failed opening output file\n");
+
+	return true;
 }
 
 /// Description: find available slot in thread handles array.
@@ -371,11 +427,11 @@ static void decide_first_player(HANDLE* handles, char* player_name)
 /// Description: exit protocol - close mutexes, sockets and handles.  
 /// Parameters: 
 ///		[in] handles - array of client thread handles.
+///		[in] server_handles - array of server thread handles.
 ///		[in] server_socket
 ///		[in] client_data - client's username and socket.
-///		[in] server_handles - array of server thread handles.
 /// Return: none.
-static void close_all(HANDLE* handles, SOCKET server_socket, s_client_data* client_data, HANDLE* server_handles)
+static void close_all(HANDLE* handles, HANDLE* server_handles, SOCKET server_socket, s_client_data* client_data)
 {
 	game_tear_down();
 	CloseHandle(g_game_data.mutex_game_routine);
@@ -392,3 +448,12 @@ static void close_all(HANDLE* handles, SOCKET server_socket, s_client_data* clie
 	Socket_TearDown(server_socket, false);
 }
 
+static void print_socket_data(SOCKET socker_origid, char* print_origid, char* string) 
+{
+	for (int i = 0; i < NUMBER_OF_ACTIVE_CONNECTIONS; i++)
+		if (g_client_data_array[i].client_socket == socker_origid)
+		{
+			if (g_client_data_array[i].client_thread_file != NULL)
+				File_Printf(g_client_data_array[i].client_thread_file, "%s from server-%s\n", print_origid, string);
+		}
+}

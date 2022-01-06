@@ -18,16 +18,16 @@
     <Filter Include="shared\inc">
       <UniqueIdentifier>{7476d32a-baa5-46fc-bbea-2f2023572343}</UniqueIdentifier>
     </Filter>
+    <Filter Include="shared\inc\misc">
+      <UniqueIdentifier>{a32d4fcf-aa47-427c-a76a-b487c50d323f}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="shared\src\misc">
+      <UniqueIdentifier>{cf01298f-96b0-4904-baa6-49671437cc27}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="client_main.c">
       <Filter>Source Files</Filter>
-    </ClCompile>
-    <ClCompile Include="client_send_recv.c">
-      <Filter>Source Files</Filter>
-    </ClCompile>
-    <ClCompile Include="..\shared\queue.c">
-      <Filter>shared\src</Filter>
     </ClCompile>
     <ClCompile Include="..\shared\message_defs.c">
       <Filter>shared\src</Filter>
@@ -38,21 +38,21 @@
     <ClCompile Include="..\shared\threads.c">
       <Filter>shared\src</Filter>
     </ClCompile>
-    <ClCompile Include="..\shared\FileApi\file.c">
-      <Filter>shared\src</Filter>
-    </ClCompile>
     <ClCompile Include="client_UI.c">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="..\shared\FileApi\file.c">
+      <Filter>shared\src\misc</Filter>
+    </ClCompile>
+    <ClCompile Include="..\shared\queue.c">
+      <Filter>shared\src\misc</Filter>
+    </ClCompile>
+    <ClCompile Include="send_recv_routine.c">
       <Filter>Source Files</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>
-    <ClInclude Include="client_send_recv.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
     <ClInclude Include="..\shared\message_defs.h">
-      <Filter>shared\inc</Filter>
-    </ClInclude>
-    <ClInclude Include="..\shared\queue.h">
       <Filter>shared\inc</Filter>
     </ClInclude>
     <ClInclude Include="..\shared\socket_handle.h">
@@ -61,10 +61,16 @@
     <ClInclude Include="..\shared\threads.h">
       <Filter>shared\inc</Filter>
     </ClInclude>
-    <ClInclude Include="..\shared\FileApi\file.h">
-      <Filter>shared\inc</Filter>
-    </ClInclude>
     <ClInclude Include="client_UI.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="..\shared\FileApi\file.h">
+      <Filter>shared\inc\misc</Filter>
+    </ClInclude>
+    <ClInclude Include="..\shared\queue.h">
+      <Filter>shared\inc\misc</Filter>
+    </ClInclude>
+    <ClInclude Include="send_recv_routine.h">
       <Filter>Header Files</Filter>
     </ClInclude>
   </ItemGroup>

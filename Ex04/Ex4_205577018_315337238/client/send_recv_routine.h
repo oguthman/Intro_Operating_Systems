@@ -1,7 +1,7 @@
 #define _WINSOCK_DEPRECATED_NO_WARNINGS
 /*!
 ******************************************************************************
-\file client_send_recv.h
+\file send_recv_routine.h
 \date 20 December 2021
 \author Shahar Dorit Morag & Ofir Guthman
 \project #4
@@ -15,8 +15,8 @@
 ALL RIGHTS RESERVED
 *****************************************************************************/
 
-#ifndef __CLIENT_SEND_RECV_H__
-#define __CLIENT_SEND_RECV_H__
+#ifndef __SEND_RECV_ROUTINE_H__
+#define __SEND_RECV_ROUTINE_H__
 
 /************************************
 *      include                      *
@@ -38,12 +38,12 @@ typedef void (*receive_callback)(s_message_params params);
 /************************************
 *       API                         *
 ************************************/
-bool client_init_send_recv(SOCKET* client_socket, bool* soft_kill_flag);
-void client_bind_callback(receive_callback callback);
-bool client_add_transaction(s_message_params params);
-DWORD WINAPI client_send_routine(LPVOID lpParam);
-DWORD WINAPI client_receive_routine(LPVOID lpParam);
-bool client_set_receive_event(bool set, uint32_t timeout);
-void client_teardown();
+bool SendRecvRoutine_Init(SOCKET* client_socket, bool* soft_kill_flag);
+void SendRecvRoutine_BindCallback(receive_callback callback);
+bool SendRecvRoutine_AddTransaction(s_message_params params);
+DWORD WINAPI SendRecvRoutine_SendRoutine(LPVOID lpParam);
+DWORD WINAPI SendRecvRoutine_ReceiveRoutine(LPVOID lpParam);
+bool SendRecvRoutine_SetReceiveEvent(bool set, uint32_t timeout);
+void SendRecvRoutine_Teardown();
 
-#endif //__CLIENT_SEND_RECV_H__
+#endif //__SEND_RECV_ROUTINE_H__

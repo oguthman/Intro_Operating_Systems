@@ -28,7 +28,7 @@ ALL RIGHTS RESERVED
 #include "..\shared\threads.h"
 #include "..\shared\FileApi\file.h"
 //
-#include "client_send_recv.h"
+#include "send_recv_routine.h"
 #include "client_UI.h"
 
 /************************************
@@ -75,9 +75,10 @@ static File g_client_log_file;
 static void parse_arguments(int argc, char* argv[]);
 static void open_log_file(void);
 static void handle_connection_menu(void);
-static bool wait_for_connection(void);
+static bool wait_for_server_accept(void);
 static void data_received_handle(s_message_params params);
 static void data_send_handle(s_message_params* params, uint32_t timeout);
+static void print_socket_data(SOCKET socker_originator, char* print_originator, char* string);
 
 /************************************
 *       API implementation          *
@@ -94,6 +95,7 @@ static void data_send_handle(s_message_params* params, uint32_t timeout);
 /// Return: true if succeeded or false otherwise.
 int main(int argc, char* argv[])
 {
+	int exit_code = 0;
 	// parse arguments
 	parse_arguments(argc, argv);
 	open_log_file();
@@ -104,12 +106,15 @@ int main(int argc, char* argv[])
 	HANDLE thread_handels[3] = { NULL, NULL, NULL };
 
 	// init client send receive module
-	ASSERT(client_init_send_recv(&g_client_socket, &g_soft_exit_flag), "Error: failed initiate client_send_recv module\n");
-	client_bind_callback(data_received_handle);
-	client_set_receive_event(true, 15 * 1000);
+	ASSERT(SendRecvRoutine_Init(&g_client_socket, &g_soft_exit_flag), "Error: failed initiate client_send_recv module\n");
+	SendRecvRoutine_BindCallback(data_received_handle);
+	SendRecvRoutine_SetReceiveEvent(true, 15 * 1000);
 	//
-	ASSERT(clientUI_init(&g_soft_exit_flag, &g_connection_state, (s_server_data*)&gs_inputs, &g_client_log_file), "Error: failed initiate clientUI module\n");
-	clientUI_bind_send_callback(data_send_handle);
+	ASSERT(ClientUI_Init(&g_soft_exit_flag, &g_connection_state, (s_server_data*)&gs_inputs, &g_client_log_file), "Error: failed initiate clientUI module\n");
+	ClientUI_BindSendCallback(data_send_handle);
+	//
+	Socket_BindSocketPrintCallback(print_socket_data);
+
 	// run loop
 	while (g_exit_flag == false)
 	{
@@ -130,21 +135,22 @@ int main(int argc, char* argv[])
 		// send client name to the server
 		s_message_params message_params = { .message_type = MESSAGE_TYPE_CLIENT_REQUEST, .params_count = 1 };
 		message_params.params[0] = gs_inputs.username;
-		client_add_transaction(message_params);
+		SendRecvRoutine_AddTransaction(message_params);
 
 		// initiate send and receive threads
-		thread_handels[0] = create_new_thread(client_send_routine, NULL);
-		thread_handels[1] = create_new_thread(client_receive_routine, NULL);
-		thread_handels[2] = create_new_thread(clientUI_routine, NULL);
+		thread_handels[0] = create_new_thread(SendRecvRoutine_SendRoutine, NULL);
+		thread_handels[1] = create_new_thread(SendRecvRoutine_ReceiveRoutine, NULL);
+		thread_handels[2] = create_new_thread(ClientUI_Routine, NULL);
 		if (thread_handels[0] == NULL || thread_handels[1] == NULL || thread_handels[2] == NULL)
 		{
 			LOG_PRINTF("Error: failed creating a thread\n");
-			close_handles(thread_handels, 3);
+			exit_code = 1;
 			break;
 		}
 
 		// wait for connection succeed
-		if (!wait_for_connection())
+		// verify server return approved code
+		if (!wait_for_server_accept())
 		{
 			// access denied, start again
 			Socket_TearDown(g_client_socket, true);
@@ -156,33 +162,56 @@ int main(int argc, char* argv[])
 		if (!wait_for_threads(thread_handels, 3, false, INFINITE, false))
 		{
 			LOG_PRINTF("Error: wait for threads return error\n");
-			close_handles(thread_handels, 3);
+			exit_code = 1;
 			break;
 		}
-
-		// check reconnection
-
 
 		// one thread finished action, close program (softly) 
 		g_soft_exit_flag = true;
 		wait_for_threads(thread_handels, 3, false, 5000, true);
+
+		// check reconnection (timeout)		// TODO: Check if reconnect after disconnection
+		// check receive thread exit code to determine if disconnected
+		DWORD thread_exitcode;
+		if (!GetExitCodeThread(thread_handels[1], &thread_exitcode))
+		{
+			LOG_PRINTF("Error: GetExitCodeThread return error\n");
+			exit_code = 1;
+		}
+		if (thread_exitcode == transfer_timeout)
+		{
+			LOG_PRINTF("Failed connecting to server on %s:%d.\n", gs_inputs.server_ip, gs_inputs.server_port);
+			Socket_TearDown(g_client_socket, true);
+			handle_connection_menu();
+			continue;
+		}
+
 		break;
 	}
 	
 	// check receive thread exit code to determine if disconnected
 	DWORD exitcode;
 	if (!GetExitCodeThread(thread_handels[1], &exitcode))
+	{
 		LOG_PRINTF("Error: GetExitCodeThread return error\n");
+		exit_code = 1;
+	}			
+
 
 	if (exitcode == transfer_disconnected)
+	{
 		LOG_PRINTF("Server disconnected. Exiting.\n");
+		exit_code = 1;
+	}
 
 	// close all handles
 	close_handles(thread_handels, 3);
 	File_Close(g_client_log_file);
 
 	// on exit
-	client_teardown();
+	SendRecvRoutine_Teardown();
+
+	// TODO: return value
 }
 
 /************************************
@@ -236,14 +265,14 @@ static void handle_connection_menu(void)
 	char* acceptable_chars[] = { "1", "2" };
 
 	// check if need to exit
-	if (clientUI_validate_menu_input(acceptable_chars, 2, message) == 2)
+	if (ClientUI_ValidateMenuInput(acceptable_chars, 2, message) == 2)
 		g_exit_flag = true;
 }
 
-/// Description: try to connect to server.
+/// Description: wait for server to accept the connection.
 /// Parameters: none.
 /// Return: true if connection succeed and false if connection denied.
-static bool wait_for_connection(void)
+static bool wait_for_server_accept(void)
 {
 	while (g_connection_state != connection_succeed)
 	{
@@ -253,23 +282,32 @@ static bool wait_for_connection(void)
 	return true;
 }
 
+/// Description: handle data received from recieve_routine.
+/// Parameters: 
+///		[in] params - the message params from server.
+/// Return: none.
 static void data_received_handle(s_message_params params)
 {
-	if (!clientUI_add_message(params))
+	if (!ClientUI_AddMessage(params))
 	{
 		LOG_PRINTF("Error: failed add message to UI. Exiting.\n");
 		g_soft_exit_flag = true;
 	}
 	//
 	// reset the receive event until timeout update
-	client_set_receive_event(false, 15 * 1000);
+	SendRecvRoutine_SetReceiveEvent(false, 15 * 1000);
 }
 
+/// Description: handle data sending to server.
+/// Parameters: 
+///		[in] params - the message params to server.
+///		[in] timeout - the timeout for waiting server response.
+/// Return: none.
 static void data_send_handle(s_message_params* params, uint32_t timeout)
 {
 	if (params != NULL)
 	{
-		if (!client_add_transaction(*params))
+		if (!SendRecvRoutine_AddTransaction(*params))
 		{
 			LOG_PRINTF("Error: failed add message to UI. Exiting.\n");
 			g_soft_exit_flag = true;
@@ -277,6 +315,20 @@ static void data_send_handle(s_message_params* params, uint32_t timeout)
 	}
 	//
 	// set the receive event with the updated timeout value
-	client_set_receive_event(true, timeout);
+	SendRecvRoutine_SetReceiveEvent(true, timeout);
 }
 
+/// Description: handle socket data for printing.
+/// Parameters: 
+///		[in] socker_originator - the send/recv socket.
+///		[in] print_originator - send/receive string.
+///		[in] string - the data from socket to print.
+/// Return: none.
+static void print_socket_data(SOCKET socker_originator, char* print_originator, char* string)
+{
+	if (g_client_socket == socker_originator)
+	{
+		if (g_client_log_file != NULL)
+			File_Printf(g_client_log_file, "%s from server-%s\n", print_originator, string);
+	}
+}

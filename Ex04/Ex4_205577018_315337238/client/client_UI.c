@@ -68,7 +68,7 @@ static void vaildate_user_move(char* accepatble_move, char* message);
 /************************************
 *       API implementation          *
 ************************************/
-bool clientUI_init(bool* soft_kill_flag, e_connection_state * connection_state, s_server_data* server_data, File* client_log_file)
+bool ClientUI_Init(bool* soft_kill_flag, e_connection_state * connection_state, s_server_data* server_data, File* client_log_file)
 {
 	g_killing_me_softly_flag = soft_kill_flag;
 	g_connection_state = connection_state;
@@ -84,12 +84,12 @@ bool clientUI_init(bool* soft_kill_flag, e_connection_state * connection_state, 
 	return true;
 }
 
-void clientUI_bind_send_callback(send_callback callback)
+void ClientUI_BindSendCallback(send_callback callback)
 {
 	g_send_callback = callback;
 }
 
-bool clientUI_add_message(s_message_params params)
+bool ClientUI_AddMessage(s_message_params params)
 {
 	s_message_params* p_params = malloc(sizeof(s_message_params));
 	ASSERT(p_params != NULL, "Error: falied allocating memory\n");
@@ -109,7 +109,7 @@ bool clientUI_add_message(s_message_params params)
 	return true;
 }
 
-DWORD WINAPI clientUI_routine(LPVOID lpParam)
+DWORD WINAPI ClientUI_Routine(LPVOID lpParam)
 {
 	while ((*g_killing_me_softly_flag) == false)
 	{
@@ -133,7 +133,7 @@ DWORD WINAPI clientUI_routine(LPVOID lpParam)
 	return 0;
 }
 
-int clientUI_validate_menu_input(char* acceptable_str[], int array_length, char* message)
+int ClientUI_ValidateMenuInput(char* acceptable_str[], int array_length, char* message)
 {
 	do
 	{
@@ -187,7 +187,7 @@ static void data_received_handle(s_message_params message_params)
 			char* message = "Choose what to do next:\n1. Play against another client\n2. Quit\n";
 			char* acceptable_chars[] = { "1", "2" };
 			g_send_callback(NULL, INFINITE);	// Wait infinite time for client decision
-			switch (clientUI_validate_menu_input(acceptable_chars, 2, message))
+			switch (ClientUI_ValidateMenuInput(acceptable_chars, 2, message))
 			{
 			case 1:
 			{

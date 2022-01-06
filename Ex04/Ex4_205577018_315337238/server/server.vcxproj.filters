@@ -18,6 +18,12 @@
     <Filter Include="shared\src">
       <UniqueIdentifier>{2a1c22e2-6bd5-4fc0-897b-ab02a764c927}</UniqueIdentifier>
     </Filter>
+    <Filter Include="shared\inc\misc">
+      <UniqueIdentifier>{b78f3f62-cbdd-4d51-9ac9-c00dc6d1291c}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="shared\src\misc">
+      <UniqueIdentifier>{97b03585-d0c5-41a1-a434-465fce7ca218}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="..\shared\message_defs.c">
@@ -29,14 +35,14 @@
     <ClCompile Include="..\shared\threads.c">
       <Filter>shared\src</Filter>
     </ClCompile>
-    <ClCompile Include="..\shared\FileApi\file.c">
-      <Filter>shared\src</Filter>
-    </ClCompile>
     <ClCompile Include="game.c">
       <Filter>Source Files</Filter>
     </ClCompile>
     <ClCompile Include="server_main.c">
       <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="..\shared\FileApi\file.c">
+      <Filter>shared\src\misc</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>
@@ -49,11 +55,11 @@
     <ClInclude Include="..\shared\threads.h">
       <Filter>shared\inc</Filter>
     </ClInclude>
-    <ClInclude Include="..\shared\FileApi\file.h">
-      <Filter>shared\inc</Filter>
-    </ClInclude>
     <ClInclude Include="game.h">
       <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="..\shared\FileApi\file.h">
+      <Filter>shared\inc\misc</Filter>
     </ClInclude>
   </ItemGroup>
 </Project>
