@@ -146,6 +146,7 @@
     <ClCompile Include="..\shared\threads.c" />
     <ClCompile Include="client_main.c" />
     <ClCompile Include="client_send_recv.c" />
+    <ClCompile Include="client_UI.c" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="..\shared\FileApi\file.h" />
@@ -154,6 +155,7 @@
     <ClInclude Include="..\shared\socket_handle.h" />
     <ClInclude Include="..\shared\threads.h" />
     <ClInclude Include="client_send_recv.h" />
+    <ClInclude Include="client_UI.h" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">

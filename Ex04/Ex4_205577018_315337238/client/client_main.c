@@ -29,6 +29,7 @@ ALL RIGHTS RESERVED
 #include "..\shared\FileApi\file.h"
 //
 #include "client_send_recv.h"
+#include "client_UI.h"
 
 /************************************
 *      definitions                 *
@@ -42,16 +43,6 @@ ALL RIGHTS RESERVED
 		}																					\
 	} while (0);
 
-// TODO: check return/exit condition
-#define THREAD_ASSERT(cond, msg, ...)														\
-	do {																					\
-		if (!(cond)) {																		\
-			printf("Thread Assertion failed at file %s line %d: \n", __FILE__, __LINE__);	\
-			printf(msg, __VA_ARGS__);														\
-			return 1;																		\
-		}																					\
-	} while (0);
-
 #define LOG_PRINTF(msg, ...)																\
 	do {																					\
 		printf(msg, __VA_ARGS__);															\
@@ -62,11 +53,6 @@ ALL RIGHTS RESERVED
 /************************************
 *       types                       *
 ************************************/
-typedef enum {
-	connection_idle,
-	connection_succeed,
-	connection_denied
-} e_connection_state;
 
 /************************************
 *      variables                    *
@@ -90,16 +76,16 @@ static void parse_arguments(int argc, char* argv[]);
 static void open_log_file(void);
 static void handle_connection_menu(void);
 static bool wait_for_connection(void);
-static int validate_menu_input(char* acceptable_str[], int array_length, char* message);
-static char* string_to_lower(char* str);
-static void vaildate_user_move(char* accepatble_move, char* message);
 static void data_received_handle(s_message_params params);
+static void data_send_handle(s_message_params* params, uint32_t timeout);
 
 /************************************
 *       API implementation          *
 ************************************/
 // TODO: CHECK FREE IN GENERAL(SOCKETS AND ALLOCATIONS)
 // TODO: ASSERTS
+// TODO: ADD SEND/RECV BUFFER TO LOG
+// TODO: VERIFY PRINTS TO LOG
 
 /// Description: initiate values and modules, connect to server, create client threads. 
 /// Parameters: 
@@ -115,12 +101,15 @@ int main(int argc, char* argv[])
 	g_exit_flag = false;
 	g_soft_exit_flag = false;
 	g_connection_state = connection_idle;
-	HANDLE thread_handels[2] = { NULL, NULL };
+	HANDLE thread_handels[3] = { NULL, NULL, NULL };
 
 	// init client send receive module
-	client_init_send_recv(&g_client_socket, &g_soft_exit_flag);
+	ASSERT(client_init_send_recv(&g_client_socket, &g_soft_exit_flag), "Error: failed initiate client_send_recv module\n");
 	client_bind_callback(data_received_handle);
-
+	client_set_receive_event(true, 15 * 1000);
+	//
+	ASSERT(clientUI_init(&g_soft_exit_flag, &g_connection_state, (s_server_data*)&gs_inputs, &g_client_log_file), "Error: failed initiate clientUI module\n");
+	clientUI_bind_send_callback(data_send_handle);
 	// run loop
 	while (g_exit_flag == false)
 	{
@@ -146,10 +135,11 @@ int main(int argc, char* argv[])
 		// initiate send and receive threads
 		thread_handels[0] = create_new_thread(client_send_routine, NULL);
 		thread_handels[1] = create_new_thread(client_receive_routine, NULL);
-		if (thread_handels[0] == NULL || thread_handels[1] == NULL)
+		thread_handels[2] = create_new_thread(clientUI_routine, NULL);
+		if (thread_handels[0] == NULL || thread_handels[1] == NULL || thread_handels[2] == NULL)
 		{
 			LOG_PRINTF("Error: failed creating a thread\n");
-			close_handles(thread_handels, 2);
+			close_handles(thread_handels, 3);
 			break;
 		}
 
@@ -163,16 +153,19 @@ int main(int argc, char* argv[])
 		}
 
 		// wait for threads to finish
-		if (!wait_for_threads(thread_handels, 2, false, INFINITE, false))
+		if (!wait_for_threads(thread_handels, 3, false, INFINITE, false))
 		{
 			LOG_PRINTF("Error: wait for threads return error\n");
-			close_handles(thread_handels, 2);
+			close_handles(thread_handels, 3);
 			break;
 		}
 
+		// check reconnection
+
+
 		// one thread finished action, close program (softly) 
 		g_soft_exit_flag = true;
-		wait_for_threads(thread_handels, 2, false, 5000, true);
+		wait_for_threads(thread_handels, 3, false, 5000, true);
 		break;
 	}
 	
@@ -185,7 +178,7 @@ int main(int argc, char* argv[])
 		LOG_PRINTF("Server disconnected. Exiting.\n");
 
 	// close all handles
-	close_handles(thread_handels, 2);
+	close_handles(thread_handels, 3);
 	File_Close(g_client_log_file);
 
 	// on exit
@@ -202,6 +195,17 @@ int main(int argc, char* argv[])
 /// Return: none.
 static void parse_arguments(int argc, char* argv[])
 {
+	if (argc == 1)
+	{
+		static char username[20] = "";
+		sprintf(username, "ofir_%d", rand());
+		// parse arguments
+		gs_inputs.server_ip = "127.0.0.1";
+		gs_inputs.server_port = 8888;
+		gs_inputs.username = username;
+		return;
+	}
+	
 	// check if there are enough arguments
 	ASSERT(argc == 4, "Error: not enough arguments.\n");
 
@@ -232,7 +236,7 @@ static void handle_connection_menu(void)
 	char* acceptable_chars[] = { "1", "2" };
 
 	// check if need to exit
-	if (validate_menu_input(acceptable_chars, 2, message) == 2)
+	if (clientUI_validate_menu_input(acceptable_chars, 2, message) == 2)
 		g_exit_flag = true;
 }
 
@@ -249,155 +253,30 @@ static bool wait_for_connection(void)
 	return true;
 }
 
-/// Description: check user's response to main menu. if invalid value - resend the main menu and wait for valid response. 
-/// Parameters: 
-///		[in] acceptable_str - valid user responses. 
-///		[in] array_length - number of valid user responses. 
-///		[in] message - main menu message. 
-/// Return: none.
-static int validate_menu_input(char* acceptable_str[], int array_length, char* message)
+static void data_received_handle(s_message_params params)
 {
-	do
+	if (!clientUI_add_message(params))
 	{
-		// print require message
-		printf("%s", message);
-
-		// get user input
-		char input[256];
-		gets_s(input, sizeof(input));
-
-		// check if input is in the acceptable array
-		for (int i = 0; i < array_length; i++)
-			if (!strcmp(input, acceptable_str[i]))
-				return strtol(input, NULL, 10);
-		
-		LOG_PRINTF("Error: Illegal command\n");
-	} while (1);
-}
-
-/// Description: check user's game move validity. if invalid value - resend the next move message and wait for valid response. 
-/// Parameters: 
-///		[in] accepatble_move - valid user game move. 
-///		[in] message - next move message. 
-/// Return: none.
-static void vaildate_user_move(char* accepatble_move, char* message)
-{
-	static char boom[] = "boom";
-	do
-	{
-		// print require message
-		printf("%s", message);
-
-		// get user input
-		char input[256];
-		gets_s(input, sizeof(input));
-
-		// check if input is 'boom'
-		if (!strcmp(string_to_lower(input), boom) || strspn(input, "0123456789") == strlen(input))
-		{
-			strcpy(accepatble_move, string_to_lower(input));
-			return;
-		}
-
-		LOG_PRINTF("Error: Illegal command\n");
-	} while (1);
-}
-
-/// Description: change string from upper case to lower case.
-/// Parameters: 
-///		[in] str - upper case string. 
-/// Return: lower case string.
-static char* string_to_lower(char* str)
-{
-	for (int i = 0; i < (int)strlen(str); i++)
-		str[i] = tolower(str[i]);
-
-	return str;
-}
-
-static void data_received_handle(s_message_params message_params)
-{
-	// TODO: change according to instructions
-
-	// print to console
-	switch (message_params.message_type)
-	{
-		case MESSAGE_TYPE_SERVER_APPROVED:
-			g_connection_state = connection_succeed;
-			break;
-		case MESSAGE_TYPE_SERVER_DENIED:
-			g_connection_state = connection_denied;
-			printf("Server on %s:%d denied the connection request.\n", gs_inputs.server_ip, gs_inputs.server_port);
-			break;
-		// TODO: check if needed, becuase I think the server always send MESSAGE_TYPE_SERVER_NO_OPPONENTS and than MESSAGE_TYPE_SERVER_MAIN_MENU
-		// case MESSAGE_TYPE_SERVER_NO_OPPONENTS: 
-		case MESSAGE_TYPE_SERVER_MAIN_MENU:
-		{
-			char* message = "Choose what to do next:\n1. Play against another client\n2. Quit\n";
-			char* acceptable_chars[] = { "1", "2" };
-			switch (validate_menu_input(acceptable_chars, 2, message))
-			{
-				case 1:
-				{
-					s_message_params send_message_params = { .message_type = MESSAGE_TYPE_CLIENT_VERSUS };
-					client_add_transaction(send_message_params);
-					break;
-				}
-				case 2:
-					// quit the program
-					g_soft_exit_flag = true;
-					break;
-			}
-			break;
-		}
-		case MESSAGE_TYPE_GAME_STARTED:
-			printf("Game is on!\n");
-			break;
-		case MESSAGE_TYPE_TURN_SWITCH:
-			// TODO: maybe shouhld check the num_of_params
-			if (!strcmp(message_params.params[0], gs_inputs.username))
-				printf("Your turn!\n");
-			else
-				printf("%s's turn!\n", message_params.params[0]);
-			break;
-		case MESSAGE_TYPE_SERVER_MOVE_REQUEST:
-		{
-			char* message = "Enter the next number or boom:\n";
-			char send_string[256] = "";
-			vaildate_user_move(send_string, message);
-			
-			// send user move
-			s_message_params send_message_params = { .message_type = MESSAGE_TYPE_CLIENT_PLAYER_MOVE, .params_count = 1 };
-			send_message_params.params[0] = send_string;
-			client_add_transaction(send_message_params);
-			break;
-		}
-		case MESSAGE_TYPE_GAME_ENDED:
-			printf("%s won!\n", message_params.params[0]);
-			break;
-		case MESSAGE_TYPE_GAME_VIEW:
-			// TODO: maybe shouhld check the num_of_params
-			printf("%s move was %s\n", message_params.params[0], message_params.params[1]);
-			if (!strcmp(message_params.params[2], "END"))
-				printf("END\n");
-			else
-			{
-				//TODO: CHECK IF NEEDED TO RETURN PRINT
-				printf("CONT\n");
-			}
-			break;
-		case MESSAGE_TYPE_SERVER_OPPONENT_QUIT:
-			printf("Opponent quit.\n");	//TODO: MAKE SURE THE PRINT IS CORRECT "Opponent quit .\n"
-			break;
+		LOG_PRINTF("Error: failed add message to UI. Exiting.\n");
+		g_soft_exit_flag = true;
 	}
+	//
+	// reset the receive event until timeout update
+	client_set_receive_event(false, 15 * 1000);
 }
 
-/// Description: write message to log file.
-/// Parameters: 
-///		[in] msg - message to write to log file. 
-/// Return: none.
-static void log_printf(char* msg)
+static void data_send_handle(s_message_params* params, uint32_t timeout)
 {
-	printf(msg);
-	File_Write(g_client_log_file, msg, strlen(msg));
+	if (params != NULL)
+	{
+		if (!client_add_transaction(*params))
+		{
+			LOG_PRINTF("Error: failed add message to UI. Exiting.\n");
+			g_soft_exit_flag = true;
+		}
+	}
+	//
+	// set the receive event with the updated timeout value
+	client_set_receive_event(true, timeout);
 }
+

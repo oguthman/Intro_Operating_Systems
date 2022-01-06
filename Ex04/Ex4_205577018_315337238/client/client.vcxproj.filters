@@ -41,6 +41,9 @@
     <ClCompile Include="..\shared\FileApi\file.c">
       <Filter>shared\src</Filter>
     </ClCompile>
+    <ClCompile Include="client_UI.c">
+      <Filter>Source Files</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="client_send_recv.h">
@@ -60,6 +63,9 @@
     </ClInclude>
     <ClInclude Include="..\shared\FileApi\file.h">
       <Filter>shared\inc</Filter>
+    </ClInclude>
+    <ClInclude Include="client_UI.h">
+      <Filter>Header Files</Filter>
     </ClInclude>
   </ItemGroup>
 </Project>
