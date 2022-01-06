@@ -152,7 +152,6 @@
     <ClInclude Include="..\shared\socket_handle.h" />
     <ClInclude Include="..\shared\threads.h" />
     <ClInclude Include="game.h" />
-    <ClInclude Include="template.h" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">

@@ -9,16 +9,20 @@ Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "client", "client\client.vcx
 EndProject
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "shared", "shared", "{23AE6F6B-D7DE-4053-A5E1-6C5276E8FE60}"
 	ProjectSection(SolutionItems) = preProject
-		shared\FileApi\file.c = shared\FileApi\file.c
-		shared\FileApi\file.h = shared\FileApi\file.h
 		shared\message_defs.c = shared\message_defs.c
 		shared\message_defs.h = shared\message_defs.h
-		shared\queue.c = shared\queue.c
-		shared\queue.h = shared\queue.h
 		shared\socket_handle.c = shared\socket_handle.c
 		shared\socket_handle.h = shared\socket_handle.h
 		shared\threads.c = shared\threads.c
 		shared\threads.h = shared\threads.h
+	EndProjectSection
+EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Misc", "Misc", "{F98A0B03-6216-4C72-8F07-5405A1BBC57C}"
+	ProjectSection(SolutionItems) = preProject
+		shared\FileApi\file.c = shared\FileApi\file.c
+		shared\FileApi\file.h = shared\FileApi\file.h
+		shared\queue.c = shared\queue.c
+		shared\queue.h = shared\queue.h
 	EndProjectSection
 EndProject
 Global
@@ -48,6 +52,9 @@ Global
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
+	EndGlobalSection
+	GlobalSection(NestedProjects) = preSolution
+		{F98A0B03-6216-4C72-8F07-5405A1BBC57C} = {23AE6F6B-D7DE-4053-A5E1-6C5276E8FE60}
 	EndGlobalSection
 	GlobalSection(ExtensibilityGlobals) = postSolution
 		SolutionGuid = {55363FE3-9D1A-4CA1-9053-F735F4A9A9B8}

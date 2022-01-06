@@ -40,6 +40,7 @@ ALL RIGHTS RESERVED
 /************************************
 *       types                       *
 ************************************/
+typedef void (*func_ptr)(void*, bool);
 
 /************************************
 *      variables                    *
@@ -61,8 +62,9 @@ SOCKET Socket_Init(e_socket_type type, char* ip, uint16_t port)
 	// Initialize Winsock.
 	WSADATA wsaData;
 	int StartupRes = WSAStartup(MAKEWORD(2, 2), &wsaData);
-	// TODO: fix this assert
-	//ASSERT(StartupRes == NO_ERROR, NULL, NULL, "Error %ld at WSAStartup()\n", WSAGetLastError());
+	
+	func_ptr null_func = NULL;	// doing this just for the assertion
+	ASSERT(StartupRes == NO_ERROR, null_func, NULL, "Error %ld at WSAStartup()\n", WSAGetLastError());
 
 	// open socket
 	SOCKET main_socket = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
@@ -223,7 +225,7 @@ void Socket_TearDown(SOCKET main_socket, bool socket_only)
 	
 	s_message_params params;
 	if (Socket_Receive(main_socket, &params, 5000) != transfer_disconnected)
-		printf("didn't receive disconnection from the other side");
+		printf("didn't receive disconnection from the other side\n");
 
 	socket_cleanup(main_socket, socket_only);
 }

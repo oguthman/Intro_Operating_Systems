@@ -83,11 +83,13 @@ static void close_all(HANDLE* handles, SOCKET server_socket, s_client_data* clie
 /************************************
 *       API implementation          *
 ************************************/
-// TODO: EXIT COMMAND TO EXIT SERVER
+// TODO: EXIT COMMAND TO EXIT SERVER						VV
 // TODO: MAKE SURE TO CHECK EVERY CREATE NEW THREAD
 // TODO: GRACEFULL SHUTDOWN
 // TODO: CHECK FREE IN GENERAL(SOCKETS AND ALLOCATIONS)
 // TODO: ASSERTS
+// TODO: LOG
+// TODO: ADD SEND/RECV BUFFER TO LOG
 
 /// Description: initiate values, initiate server socket, create server threads. 
 /// Parameters: 
@@ -192,7 +194,7 @@ static DWORD WINAPI server_listen_routine(LPVOID lpParam)
 
 		// receive new client username
 		s_message_params received_message_params;
-		if (!check_received_message(accept_socket, MESSAGE_TYPE_CLIENT_REQUEST, &received_message_params, WAIT_FOR_OPPENET_TIMEOUT))
+		if (check_received_message(accept_socket, MESSAGE_TYPE_CLIENT_REQUEST, &received_message_params, WAIT_FOR_OPPENET_TIMEOUT) != game_succeed)
 		{
 			// TODO: gracefull exit
 			// reject client
@@ -251,7 +253,7 @@ static DWORD WINAPI client_thread_routine(LPVOID lpParam)
 		Socket_Send(client_data->client_socket, message_params);
 		
 		// wait for CLIENT_VERSUS
-		if (!check_received_message(client_data->client_socket, MESSAGE_TYPE_CLIENT_VERSUS, &received_message_params, WAIT_FOR_CLIENT_OPERATION_TIMEOUT)) // TODO: Fix timeout
+		if (check_received_message(client_data->client_socket, MESSAGE_TYPE_CLIENT_VERSUS, &received_message_params, WAIT_FOR_CLIENT_OPERATION_TIMEOUT) != game_succeed) // TODO: Fix timeout
 		{
 			// client chose to disconnect from server
 			// TODO: REMOVE
@@ -265,6 +267,8 @@ static DWORD WINAPI client_thread_routine(LPVOID lpParam)
 			// send SERVER_NO_OPPONENTS
 			message_params.message_type = MESSAGE_TYPE_SERVER_NO_OPPONENTS;
 			Socket_Send(client_data->client_socket, message_params);
+			g_start_game_barrier_counter = 0;
+			Socket_FreeParamsArray(received_message_params.params, received_message_params.params_count);
 			continue;
 		}
 
@@ -274,13 +278,21 @@ static DWORD WINAPI client_thread_routine(LPVOID lpParam)
 		g_game_data.game_is_on = true;
 
 		// game routine
-		if (!game_routine(client_data))
+		e_game_result game_routine_result = game_routine(client_data);
+		if (game_routine_result != game_succeed)
 		{
+			if (game_routine_result == game_client_timeout)
+			{
+				printf("Error: wait for client move timeout\n"); // TODO: REMOVE
+				Socket_FreeParamsArray(received_message_params.params, received_message_params.params_count);
+				continue;
+			}
+			
 			// game unexpectedly stopped
-			// TODO: REMOVE
-			printf("Error: Game unexpectedly stopped\n");
+			printf(game_routine_result == game_failed ? "Error: Game unexpectedly stopped\n" : "Error: Client has disconnected\n"); // TODO: REMOVE
 			break;
 		}
+
 
 		// reset game parameters to start a new game 
 		g_game_data.game_counter = 0;

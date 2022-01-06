@@ -20,9 +20,6 @@
     </Filter>
   </ItemGroup>
   <ItemGroup>
-    <ClCompile Include="server_main.c">
-      <Filter>Source Files</Filter>
-    </ClCompile>
     <ClCompile Include="..\shared\message_defs.c">
       <Filter>shared\src</Filter>
     </ClCompile>
@@ -38,11 +35,11 @@
     <ClCompile Include="game.c">
       <Filter>Source Files</Filter>
     </ClCompile>
+    <ClCompile Include="server_main.c">
+      <Filter>Source Files</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
-    <ClInclude Include="template.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
     <ClInclude Include="..\shared\message_defs.h">
       <Filter>shared\inc</Filter>
     </ClInclude>
@@ -56,7 +53,7 @@
       <Filter>shared\inc</Filter>
     </ClInclude>
     <ClInclude Include="game.h">
-      <Filter>Source Files</Filter>
+      <Filter>Header Files</Filter>
     </ClInclude>
   </ItemGroup>
 </Project>

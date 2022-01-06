@@ -53,6 +53,13 @@ typedef struct {
 	SOCKET client_socket;
 } s_client_data;
 
+typedef enum {
+	game_failed,
+	game_succeed,
+	game_client_disconnected,
+	game_client_timeout
+} e_game_result;
+
 /************************************
 *       API                         *
 ************************************/
@@ -75,13 +82,13 @@ bool game_barrier(uint8_t* counter);
 ///		[out] received_message_params
 ///		[in] timeout - socket receive timeout. 
 /// Return: true if transfer was successful and the receive message was the expected message, and false otherwise.
-bool check_received_message(SOCKET client_socket, e_message_type expected_message_type, s_message_params* received_message_params, uint32_t timeout);
+e_game_result check_received_message(SOCKET client_socket, e_message_type expected_message_type, s_message_params* received_message_params, uint32_t timeout);
 
 /// Description: game routine - message transfer between server and clients while game is on.
 /// Parameters: 
 ///		[in] client_data - struct that contains client's username and socket.
 /// Return: true if no errors occured and false otherwise.
-bool game_routine(s_client_data* client_data);
+e_game_result game_routine(s_client_data* client_data);
 
 /// Description: check user's game move according to the rules of "seven boom".
 /// Parameters: 
