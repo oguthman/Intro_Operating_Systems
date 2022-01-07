@@ -75,7 +75,7 @@ static File g_client_log_file;
 static void parse_arguments(int argc, char* argv[]);
 static void open_log_file(void);
 static void handle_connection_menu(void);
-static bool wait_for_server_accept(void);
+static bool wait_for_server_accept(HANDLE thread);
 static void data_received_handle(s_message_params params);
 static void data_send_handle(s_message_params* params, uint32_t timeout);
 static void print_socket_data(SOCKET socker_originator, char* print_originator, char* string);
@@ -150,10 +150,11 @@ int main(int argc, char* argv[])
 
 		// wait for connection succeed
 		// verify server return approved code
-		if (!wait_for_server_accept())
+		if (!wait_for_server_accept(thread_handels[1]))
 		{
 			// access denied, start again
 			Socket_TearDown(g_client_socket, true);
+			g_client_socket = INVALID_SOCKET;
 			handle_connection_menu();
 			continue;
 		}
@@ -243,13 +244,15 @@ static void handle_connection_menu(void)
 }
 
 /// Description: wait for server to accept the connection.
-/// Parameters: none.
+/// Parameters:
+///		[in] thread - the receive routine thread
 /// Return: true if connection succeed and false if connection denied.
-static bool wait_for_server_accept(void)
+static bool wait_for_server_accept(HANDLE thread)
 {
+	HANDLE handles[] = { thread };
 	while (g_connection_state != connection_succeed)
 	{
-		if (g_connection_state == connection_denied)
+		if (g_connection_state == connection_denied || wait_for_threads(handles, 1, false, 0, false))
 			return false;
 	}
 	return true;

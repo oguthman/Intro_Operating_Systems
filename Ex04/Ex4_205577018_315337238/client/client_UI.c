@@ -197,9 +197,14 @@ static void data_received_handle(s_message_params message_params)
 					break;
 				}
 				case 2:
+				{
+					s_message_params send_message_params = { .message_type = MESSAGE_TYPE_CLIENT_DISCONNECT };
+					g_send_callback(&send_message_params, WAIT_FOR_SERVER);
 					// quit the program
+					Sleep(100);
 					*g_killing_me_softly_flag = true;
 					break;
+				}
 			}
 			return;
 		}
@@ -263,7 +268,7 @@ static void vaildate_user_move(char* accepatble_move, char* message)
 		gets_s(input, sizeof(input));
 
 		// check if input is 'boom'
-		if (!strcmp(string_to_lower(input), boom) || strspn(input, "0123456789") == strlen(input))
+		if (strcmp(input, "") && (!strcmp(string_to_lower(input), boom) || strspn(input, "0123456789") == strlen(input)))
 		{
 			strcpy(accepatble_move, string_to_lower(input));
 			return;

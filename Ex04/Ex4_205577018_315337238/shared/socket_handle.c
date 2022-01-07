@@ -30,6 +30,7 @@ ALL RIGHTS RESERVED
 #define ASSERT(cond, action, arg, msg, ...)													\
 	do {																					\
 		if (!(cond)) {																		\
+			printf("Assertion failed at file %s line %d: \n", __FILE__, __LINE__);			\
 			printf(msg, __VA_ARGS__);														\
 			if (action != NULL)																\
 				action(arg, false);															\
@@ -83,7 +84,7 @@ SOCKET Socket_Init(e_socket_type type, char* ip, uint16_t port)
 		};
 		
 		// connect - try to connect to server
-		ASSERT((connect(main_socket, (SOCKADDR*)&clientService, sizeof(clientService)) != SOCKET_ERROR), socket_cleanup, main_socket, "Failed to connect to server.\n");
+		ASSERT((connect(main_socket, (SOCKADDR*)&clientService, sizeof(clientService)) != SOCKET_ERROR), socket_cleanup, main_socket, "");
 	}
 	else if (type == socket_server)
 	{

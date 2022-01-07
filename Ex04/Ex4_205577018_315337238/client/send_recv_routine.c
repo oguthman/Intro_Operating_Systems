@@ -201,6 +201,7 @@ void SendRecvRoutine_Teardown()
 	CloseHandle(gs_sending_vars.send_event_handle);
 	CloseHandle(gs_receiving_vars.receive_event_handle);
 	Socket_TearDown(*g_client_socket, false);
+	*g_client_socket = INVALID_SOCKET;
 }
 
 /************************************

@@ -77,11 +77,9 @@ bool wait_for_threads(HANDLE* handles, int number_of_active_handles, bool wait_f
 	{
 	case WAIT_TIMEOUT:
 	{
-		printf("All running threads didn't finish after %d ms.\n", timeout);
-
 		if (terminate)
 		{
-			printf("Terminating all thereads\n");
+			// printf("Terminating all thereads\n");
 			// Terminate all running threads
 			for (int i = 0; i < number_of_active_handles; i++)
 			{

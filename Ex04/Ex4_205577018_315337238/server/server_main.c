@@ -40,7 +40,7 @@ ALL RIGHTS RESERVED
 		}																					\
 	} while (0);
 
-#define GAME_ASSERT(cond, msg, ...)														\
+#define GAME_ASSERT(cond, msg, ...)															\
 	do {																					\
 		if (!(cond)) {																		\
 			printf("Thread Assertion failed at file %s line %d: \n", __FILE__, __LINE__);	\
@@ -66,10 +66,11 @@ ALL RIGHTS RESERVED
 *      variables                    *
 ************************************/
 static uint16_t g_port;
-s_client_data g_client_data_array[NUMBER_OF_ACTIVE_CONNECTIONS];
-HANDLE g_handles[NUMBER_OF_ACTIVE_CONNECTIONS] = { NULL, NULL };
+static s_client_data g_client_data_array[NUMBER_OF_ACTIVE_CONNECTIONS];
+static HANDLE g_handles[NUMBER_OF_ACTIVE_CONNECTIONS] = { NULL, NULL };
 static uint8_t g_start_game_barrier_counter;
 static s_game_data g_game_data;
+static bool g_closing_program;
 
 /************************************
 *      static functions             *
@@ -91,8 +92,6 @@ static void print_socket_data(SOCKET socker_originator, char* print_originator, 
 /************************************
 *       API implementation          *
 ************************************/
-// TODO: CHECK LAST TODOs
-
 /// Description: initiate values, initiate server socket, create server threads. 
 /// Parameters: 
 ///		[in] argc - number of arguments. 
@@ -123,6 +122,7 @@ int main(int argc, char* argv[])
 	}
 
 	// free all allocation & close handles (Threads, Mutex, Semaphores)
+	g_closing_program = true;
 	close_all(g_handles, server_handles, server_socket, g_client_data_array);
 	return exit_code;
 }
@@ -148,6 +148,7 @@ static void parse_arguments(int argc, char* argv[])
 static void server_init() 
 {
 	g_start_game_barrier_counter = 0;
+	g_closing_program = false;
 
 	g_game_data.mutex_game_update = create_mutex(true);
 	ASSERT(g_game_data.mutex_game_update != NULL, "Error: failed creating mutex. Exiting\n");
@@ -157,7 +158,10 @@ static void server_init()
 
 	g_game_data.player_turn = 1;
 	g_game_data.game_counter = 0;
-	
+
+	for (int8_t i = 0; i < NUMBER_OF_ACTIVE_CONNECTIONS; i++)
+		g_client_data_array[i].client_socket = INVALID_SOCKET;
+
 	game_init(&g_game_data);
 }
 
@@ -173,9 +177,13 @@ static DWORD WINAPI server_listen_routine(LPVOID lpParam)
 	{
 		// accept new clients (wait for clients to connect)
 		SOCKET accept_socket = accept(server_socket, NULL, NULL);
-		GAME_ASSERT(accept_socket != INVALID_SOCKET, "Error: server can't open socket for client\n");
-		// TODO: remove
-		printf("Client has connected\n");
+		if (accept_socket == INVALID_SOCKET)
+		{
+			if (!g_closing_program)
+				printf("Error: server can't open socket for client\n");
+			break;
+		}
+		// printf("Client has connected\n");
 
 		// search for unused thread slot
 		int8_t thread_index;
@@ -310,7 +318,7 @@ static DWORD WINAPI client_thread_routine(LPVOID lpParam)
 			g_game_data.game_is_on = false;
 			
 			// game unexpectedly stopped
-			printf(game_routine_result == game_failed ? "Error: Game unexpectedly stopped\n" : "Error: Client has disconnected\n"); // TODO: REMOVE
+			// printf(game_routine_result == game_failed ? "Error: Game unexpectedly stopped\n" : "Error: Client has disconnected\n");
 			break;
 		}
 
@@ -411,6 +419,8 @@ static void decide_first_player(HANDLE* handles, char* player_name)
 /// Return: none.
 static void close_all(HANDLE* handles, HANDLE* server_handles, SOCKET server_socket, s_client_data* client_data)
 {
+	wait_for_threads(handles, NUMBER_OF_ACTIVE_CONNECTIONS, true, 1000, true);
+
 	game_tear_down();
 	CloseHandle(g_game_data.mutex_game_routine);
 	CloseHandle(g_game_data.mutex_game_update);
@@ -419,6 +429,7 @@ static void close_all(HANDLE* handles, HANDLE* server_handles, SOCKET server_soc
 	{
 		if (client_data[i].client_socket != INVALID_SOCKET)
 			Socket_TearDown(client_data[i].client_socket, true);
+		client_data[i].client_socket = INVALID_SOCKET;
 	}
 
 	close_handles(handles, NUMBER_OF_ACTIVE_CONNECTIONS);
