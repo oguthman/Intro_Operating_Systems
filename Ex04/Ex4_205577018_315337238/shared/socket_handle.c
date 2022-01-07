@@ -54,6 +54,7 @@ static void wsa_cleanup(SOCKET socket, bool socket_only);
 static void socket_cleanup(SOCKET socket, bool socket_only);
 static e_transfer_result send_buffer(SOCKET socket, const char* buffer, uint32_t bytes_to_send);
 static e_transfer_result receive_buffer(SOCKET socket, char* buffer, uint32_t bytes_to_receive);
+static bool build_buffer_from_message_params(s_message_params message_params, char** buffer);
 
 /************************************
 *       API implementation          *
@@ -109,7 +110,7 @@ e_transfer_result Socket_Send(SOCKET main_socket, s_message_params message_param
 {
 	e_transfer_result transfer_result;
 	char* buffer = NULL;
-	if (!Socket_BuildBufferFromMessageParams(message_params, &buffer))
+	if (!build_buffer_from_message_params(message_params, &buffer))
 		return transfer_failed;
 
 	// sending the packet length
@@ -123,7 +124,7 @@ e_transfer_result Socket_Send(SOCKET main_socket, s_message_params message_param
 	}
 	
 	if (print_callback != NULL)
-		print_callback(main_socket, "sent", buffer);
+		print_callback(main_socket, "sent to", buffer);
 
 	// sending the real packet
 	transfer_result = send_buffer(main_socket, (const char*)(buffer), string_size);
@@ -136,41 +137,6 @@ void Socket_BindSocketPrintCallback(printing_callback callback)
 	print_callback = callback;
 }
 
-
-bool Socket_BuildBufferFromMessageParams(s_message_params message_params, char** buffer)
-{
-	char* message_str = get_message_str(message_params.message_type);
-	// creating the string
-	int message_length;
-	if (message_params.params_count == 0)
-		message_length = snprintf(NULL, 0, "%s\n", message_str);
-	else if (message_params.params_count == 1)
-		message_length = snprintf(NULL, 0, "%s:%s\n", message_str, message_params.params[0]);
-	else if (message_params.params_count == 2)
-		message_length = snprintf(NULL, 0, "%s:%s;%s\n", message_str, message_params.params[0], message_params.params[1]);
-	else
-		message_length = snprintf(NULL, 0, "%s:%s;%s;%s\n", message_str, message_params.params[0], message_params.params[1], message_params.params[2]);
-
-	*buffer = malloc((message_length) * sizeof(char));
-	if (NULL == *buffer)
-	{
-		printf("Error: failed allocating buffer for message\n");
-		return false;
-	}
-
-	if (message_params.params_count == 0)
-		snprintf(*buffer, message_length, "%s\n", message_str);
-	else if (message_params.params_count == 1)
-		snprintf(*buffer, message_length, "%s:%s\n", message_str, message_params.params[0]);
-	else if (message_params.params_count == 2)
-		snprintf(*buffer, message_length, "%s:%s;%s\n", message_str, message_params.params[0], message_params.params[1]);
-	else
-		snprintf(*buffer, message_length, "%s:%s;%s;%s\n", message_str, message_params.params[0], message_params.params[1], message_params.params[2]);
-
-	return true;
-}
-
-// TODO: implement timeout
 e_transfer_result Socket_Receive(SOCKET main_socket, s_message_params* message_params, uint32_t timeout)
 {
 	// setting timeout
@@ -201,8 +167,7 @@ e_transfer_result Socket_Receive(SOCKET main_socket, s_message_params* message_p
 	}
 
 	if (print_callback != NULL)
-		print_callback(main_socket, "received", buffer);
-
+		print_callback(main_socket, "received from", buffer);
 
 	char* message_type_str = strtok(buffer, ":");
 	message_params->message_type = get_message_type(message_type_str);
@@ -213,11 +178,16 @@ e_transfer_result Socket_Receive(SOCKET main_socket, s_message_params* message_p
 	while (message_type_str != NULL)	// strtok returns NULL when there is no split left
 	{
 		message_params->params_count++;
-		
 		message_params->params[message_params->params_count - 1] = malloc((strlen(message_type_str) + 1) * sizeof(char));
-		ASSERT(message_params->params[message_params->params_count - 1] != NULL, socket_cleanup, main_socket, "Error: failed allocation memory\n");  // TODO: fix action
-		strcpy(message_params->params[message_params->params_count - 1], message_type_str);
+		if (message_params->params[message_params->params_count - 1] == NULL)
+		{
+			printf("Error: failed allocation memory\n");
+			socket_cleanup(main_socket, false);
+			free(buffer);
+			return transfer_failed;
+		}
 
+		strcpy(message_params->params[message_params->params_count - 1], message_type_str);
 		message_type_str = strtok(NULL, ";");
 	}
 
@@ -227,12 +197,14 @@ e_transfer_result Socket_Receive(SOCKET main_socket, s_message_params* message_p
 
 void Socket_TearDown(SOCKET main_socket, bool socket_only)
 {
+	if (main_socket == INVALID_SOCKET)
+		return;
+	
 	shutdown(main_socket, SD_SEND);
 	
+	// try to receive disconnection from other side.
 	s_message_params params;
-	if (Socket_Receive(main_socket, &params, 5000) != transfer_disconnected)
-		printf("didn't receive disconnection from the other side\n");
-
+	Socket_Receive(main_socket, &params, 5000);
 	socket_cleanup(main_socket, socket_only);
 }
 
@@ -244,7 +216,10 @@ void Socket_FreeParamsArray(char* params[], uint32_t number_of_params)
 	for (uint32_t i = 0; i < number_of_params; i++)
 	{
 		if (params[i] != NULL) // handle warning
+		{
 			free(params[i]);
+			params[i] = NULL;
+		}
 	}
 }
 
@@ -253,9 +228,8 @@ void Socket_FreeParamsArray(char* params[], uint32_t number_of_params)
 ************************************/
 /// Description: 
 /// Parameters: 
-///		[in] type - socket type. 
-///		[in] ip
-///		[in] port
+///		[in] main_socket - socket handle.
+///		[in] socket_only - flag to perform only socket_cleanup
 /// Return: socket handle.
 static void wsa_cleanup(SOCKET main_socket, bool socket_only)		// entering socket just for compilation reasons (ASSERT) & socket_only
 {
@@ -294,7 +268,7 @@ static e_transfer_result send_buffer(SOCKET main_socket, const char* buffer, uin
 		bytes_transferred = send(main_socket, p_current_buffer, remaining_bytes_to_send, 0);
 		if (bytes_transferred == SOCKET_ERROR)
 		{
-			printf("send() failed, error %d\n", WSAGetLastError());
+			// printf("send() failed, error %d\n", WSAGetLastError());
 			return transfer_failed;
 		}
 
@@ -327,7 +301,7 @@ static e_transfer_result receive_buffer(SOCKET main_socket, char* buffer, uint32
 			if (last_error == WSAETIMEDOUT)
 				return transfer_timeout;
 
-			printf("recv() failed, error %d\n", last_error);
+			// printf("recv() failed, error %d\n", last_error);
 			return transfer_failed;
 		}
 		else if (bytes_transferred == 0)
@@ -338,4 +312,42 @@ static e_transfer_result receive_buffer(SOCKET main_socket, char* buffer, uint32
 	}
 
 	return transfer_succeeded;
+}
+
+/// Description: build a message string from message params.  
+/// Parameters: 
+///		[in] message_params - the params to build the string. 
+///		[in] buffer - pointer to the buffer string. 
+/// Return: none.
+static bool build_buffer_from_message_params(s_message_params message_params, char** buffer)
+{
+	char* message_str = get_message_str(message_params.message_type);
+	// creating the string
+	int message_length;
+	if (message_params.params_count == 0)
+		message_length = snprintf(NULL, 0, "%s\n", message_str);
+	else if (message_params.params_count == 1)
+		message_length = snprintf(NULL, 0, "%s:%s\n", message_str, message_params.params[0]);
+	else if (message_params.params_count == 2)
+		message_length = snprintf(NULL, 0, "%s:%s;%s\n", message_str, message_params.params[0], message_params.params[1]);
+	else
+		message_length = snprintf(NULL, 0, "%s:%s;%s;%s\n", message_str, message_params.params[0], message_params.params[1], message_params.params[2]);
+
+	*buffer = malloc((message_length) * sizeof(char));
+	if (NULL == *buffer)
+	{
+		printf("Error: failed allocating buffer for message\n");
+		return false;
+	}
+
+	if (message_params.params_count == 0)
+		snprintf(*buffer, message_length, "%s\n", message_str);
+	else if (message_params.params_count == 1)
+		snprintf(*buffer, message_length, "%s:%s\n", message_str, message_params.params[0]);
+	else if (message_params.params_count == 2)
+		snprintf(*buffer, message_length, "%s:%s;%s\n", message_str, message_params.params[0], message_params.params[1]);
+	else
+		snprintf(*buffer, message_length, "%s:%s;%s;%s\n", message_str, message_params.params[0], message_params.params[1], message_params.params[2]);
+
+	return true;
 }

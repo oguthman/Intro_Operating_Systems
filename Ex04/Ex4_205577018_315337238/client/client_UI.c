@@ -41,6 +41,9 @@ ALL RIGHTS RESERVED
 			File_Printf(*g_client_log_file, msg, __VA_ARGS__);								\
 	} while (0);
 
+#define WAIT_FOR_SERVER				15000
+#define	WAIT_FOR_GAME_TO_START		30000
+#define WAIT_FOR_PERSON				INFINITE
 
 /************************************
 *       types                       *
@@ -180,69 +183,66 @@ static void data_received_handle(s_message_params message_params)
 			*g_connection_state = connection_denied;
 			printf("Server on %s:%d denied the connection request.\n", g_server_data->server_ip, g_server_data->port);
 			break;
-			// TODO: check if needed, becuase I think the server always send MESSAGE_TYPE_SERVER_NO_OPPONENTS and than MESSAGE_TYPE_SERVER_MAIN_MENU
-			// case MESSAGE_TYPE_SERVER_NO_OPPONENTS: 
 		case MESSAGE_TYPE_SERVER_MAIN_MENU:
 		{
 			char* message = "Choose what to do next:\n1. Play against another client\n2. Quit\n";
 			char* acceptable_chars[] = { "1", "2" };
-			g_send_callback(NULL, INFINITE);	// Wait infinite time for client decision
+			g_send_callback(NULL, WAIT_FOR_PERSON);
 			switch (ClientUI_ValidateMenuInput(acceptable_chars, 2, message))
 			{
-			case 1:
-			{
-				s_message_params send_message_params = { .message_type = MESSAGE_TYPE_CLIENT_VERSUS };
-				g_send_callback(&send_message_params, 15 * 1000);
-				break;
+				case 1:
+				{
+					s_message_params send_message_params = { .message_type = MESSAGE_TYPE_CLIENT_VERSUS };
+					g_send_callback(&send_message_params, WAIT_FOR_GAME_TO_START);
+					break;
+				}
+				case 2:
+					// quit the program
+					*g_killing_me_softly_flag = true;
+					break;
 			}
-			case 2:
-				// quit the program
-				*g_killing_me_softly_flag = true;
-				break;
-			}
-			break;
+			return;
 		}
 		case MESSAGE_TYPE_GAME_STARTED:
 			printf("Game is on!\n");
-			g_send_callback(NULL, 30 * 1000);		// Set waiting time to 30sec
 			break;
 		case MESSAGE_TYPE_TURN_SWITCH:
 			if (!strcmp(message_params.params[0], g_server_data->username))
 				printf("Your turn!\n");
 			else
 				printf("%s's turn!\n", message_params.params[0]);
-			break;
+			
+			g_send_callback(NULL, WAIT_FOR_PERSON);
+			return;
 		case MESSAGE_TYPE_SERVER_MOVE_REQUEST:
 		{
 			char* message = "Enter the next number or boom:\n";
-			char send_string[256] = "";
+			char send_string[512] = "";
 			vaildate_user_move(send_string, message);
 
 			// send user move
 			s_message_params send_message_params = { .message_type = MESSAGE_TYPE_CLIENT_PLAYER_MOVE, .params_count = 1 };
 			send_message_params.params[0] = send_string;
-			g_send_callback(&send_message_params, 30 * 1000);
-			break;
+			g_send_callback(&send_message_params, WAIT_FOR_SERVER);
+			return;
 		}
 		case MESSAGE_TYPE_GAME_ENDED:
 			printf("%s won!\n", message_params.params[0]);
 			break;
 		case MESSAGE_TYPE_GAME_VIEW:
-			// TODO: maybe shouhld check the num_of_params
 			printf("%s move was %s\n", message_params.params[0], message_params.params[1]);
 			if (!strcmp(message_params.params[2], "END"))
 				printf("END\n");
 			else
-			{
-				//TODO: CHECK IF NEEDED TO RETURN PRINT
 				printf("CONT\n");
-			}
 			break;
 		case MESSAGE_TYPE_SERVER_OPPONENT_QUIT:
-			printf("Opponent quit.\n");	//TODO: MAKE SURE THE PRINT IS CORRECT "Opponent quit .\n"
+			printf("Opponent quit.\n");
 			break;
 	}
-	g_send_callback(NULL, 15 * 1000);		// Set waiting time to 15sec
+	
+	// Set waiting time
+	g_send_callback(NULL, WAIT_FOR_SERVER);
 }
 
 /// Description: check user's game move validity. if invalid value - resend the next move message and wait for valid response. 

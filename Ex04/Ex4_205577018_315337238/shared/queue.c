@@ -25,13 +25,12 @@ ALL RIGHTS RESERVED
 /************************************
 *      definitions                 *
 ************************************/
-// TODO: change assert exit
 #define ASSERT(cond, msg, ...)														\
 	do {																			\
 		if (!(cond)) {																\
 			printf("Assertion failed at file %s line %d: \n", __FILE__, __LINE__);	\
 			printf(msg, __VA_ARGS__);												\
-			exit (1);																\
+			return NULL;															\
 		}																			\
 	} while (0);
 
@@ -96,6 +95,9 @@ void queue_push(s_node **head, void* item, bool push_to_head)
 void queue_priority_push(s_node** head, void* item, uint32_t priority, bool inc_order)
 {
 	s_node* node = create_new_node(item);
+	if (node == NULL)
+		return;
+
 	node->priority = priority;
 
 	if (*head == NULL)

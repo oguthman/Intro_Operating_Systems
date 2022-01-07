@@ -38,6 +38,7 @@ typedef void (*receive_callback)(s_message_params params);
 /************************************
 *       API                         *
 ************************************/
+// TODO: docs
 bool SendRecvRoutine_Init(SOCKET* client_socket, bool* soft_kill_flag);
 void SendRecvRoutine_BindCallback(receive_callback callback);
 bool SendRecvRoutine_AddTransaction(s_message_params params);

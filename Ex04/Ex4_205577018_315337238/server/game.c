@@ -22,25 +22,28 @@ ALL RIGHTS RESERVED
 /************************************
 *      definitions                 *
 ************************************/
-#define NUMBER_OF_ACTIVE_CONNECTIONS			2
-#define CLIENT_NON_USER_TIMEOUT				(15000)		// 15sec //TODO: CHANGE ACCORDING TO INSTRUCTIONS
-
-#define ASSERT(cond, msg, ...)														\
-	do {																			\
-		if (!(cond)) {																\
-			printf("Assertion failed at file %s line %d: \n", __FILE__, __LINE__);	\
-			printf(msg, __VA_ARGS__);												\
-			exit (1);																\
-		}																			\
+#define ASSERT(cond, msg, ...)																\
+	do {																					\
+		if (!(cond)) {																		\
+			printf("Assertion failed at file %s line %d: \n", __FILE__, __LINE__);			\
+			printf(msg, __VA_ARGS__);														\
+			exit (1);																		\
+		}																					\
 	} while (0);
 
-// TODO: check return/exit condition
-#define THREAD_ASSERT(cond, msg, ...)														\
+#define LOG_PRINTF(file, msg, ...)															\
+	do {																					\
+		printf(msg, __VA_ARGS__);															\
+		if (file != NULL)																	\
+			File_Printf(file, msg, __VA_ARGS__);											\
+	} while (0);
+
+#define GAME_ASSERT(cond, file, msg, ...)													\
 	do {																					\
 		if (!(cond)) {																		\
 			printf("Thread Assertion failed at file %s line %d: \n", __FILE__, __LINE__);	\
-			printf(msg, __VA_ARGS__);														\
-			return false;																		\
+			LOG_PRINTF(file, msg, __VA_ARGS__);												\
+			return false;																	\
 		}																					\
 	} while (0);
 
@@ -77,14 +80,14 @@ void game_init(s_game_data* game_data)
 	g_game_data = game_data;
 }
 
-bool game_barrier(uint8_t* counter)
+bool game_barrier(uint8_t* counter, File* file)
 {
 	DWORD wait_code = WaitForSingleObject(g_barrier_mutex, CLIENT_NON_USER_TIMEOUT);
 	if (wait_code == WAIT_TIMEOUT)
 		return false;
 	else if (wait_code != WAIT_OBJECT_0)
 	{
-		printf("Error waiting for barrier mutex (%d)\n", wait_code);
+		LOG_PRINTF(*file, "Error waiting for barrier mutex (%d)\n", wait_code);
 		return false;
 	}
 
@@ -92,11 +95,11 @@ bool game_barrier(uint8_t* counter)
 	(*counter)++;
 	if (*counter == NUMBER_OF_ACTIVE_CONNECTIONS)
 	{
-		THREAD_ASSERT(ReleaseSemaphore(g_barrier_semaphore, NUMBER_OF_ACTIVE_CONNECTIONS, NULL) == true, "Error: failed releasing semaphore\n");
+		GAME_ASSERT(ReleaseSemaphore(g_barrier_semaphore, NUMBER_OF_ACTIVE_CONNECTIONS, NULL) == true, *file, "Error: failed releasing semaphore\n");
 		*counter = 0;
 	}
 	// end of critical area
-	THREAD_ASSERT(ReleaseMutex(g_barrier_mutex) == true, "Error: failed releasing mutex\n");
+	GAME_ASSERT(ReleaseMutex(g_barrier_mutex) == true, *file, "Error: failed releasing mutex\n");
 
 	wait_code = WaitForSingleObject(g_barrier_semaphore, CLIENT_NON_USER_TIMEOUT);
 	if (wait_code != WAIT_OBJECT_0)
@@ -158,16 +161,16 @@ e_game_result game_routine(s_client_data* client_data)
 				g_game_data->winner = g_game_data->player_turn == 1 ? g_game_data->second_player_name : g_game_data->first_player_name;
 
 			// release semaphore
-			THREAD_ASSERT(ReleaseSemaphore(g_game_data->semaphore_game_routine, 1, NULL) == true, "Error: failed releasing semaphore. %d\n", GetLastError());
+			GAME_ASSERT(ReleaseSemaphore(g_game_data->semaphore_game_routine, 1, NULL) == true, client_data->client_thread_file, 
+				"Error: failed releasing semaphore. %d\n", GetLastError());
 		}
 		else // other player turn
 		{
 			// wait for player move
-			DWORD wait_code = WaitForSingleObject(g_game_data->semaphore_game_routine, INFINITE);
-			if (wait_code != WAIT_OBJECT_0)
-				return game_failed;
+			GAME_ASSERT(WaitForSingleObject(g_game_data->semaphore_game_routine, INFINITE) == WAIT_OBJECT_0, client_data->client_thread_file,
+				"Error: failed waiting for game semaphore. %d\n", GetLastError());
 
-			// switch turnss
+			// switch turns
 			g_game_data->player_turn = g_game_data->player_turn == 1 ? 2 : 1;
 		}
 
@@ -195,7 +198,8 @@ e_game_result game_routine(s_client_data* client_data)
 		}
 
 		// make sure to switch turn only when both players have played
-		game_barrier(&g_game_barrier_counter);
+		GAME_ASSERT(game_barrier(&g_game_barrier_counter, &client_data->client_thread_file), client_data->client_thread_file,
+			"Error: failed waiting for game barrier.\n");
 
 		// free the params
 		Socket_FreeParamsArray(received_message_params.params, received_message_params.params_count);
@@ -254,14 +258,14 @@ void game_tear_down()
 /// Return: true if '7' is found in user's game move and false otherwise.
 static bool find_seven()
 {
-	int message_length = snprintf(NULL, 0, "%d", g_game_data->game_counter);
+	int message_length = snprintf(NULL, 0, "%lld", g_game_data->game_counter);
 	char* buffer = malloc((message_length + 1) * sizeof(char));
 	if (NULL == buffer)
 	{
 		printf("Error: failed allocating buffer for message\n");
 		return false;
 	}
-	snprintf(buffer, message_length + 1, "%d", g_game_data->game_counter);
+	snprintf(buffer, message_length + 1, "%lld", g_game_data->game_counter);
 
 	for (uint32_t i = 0; i < strlen(buffer); i++)
 	{

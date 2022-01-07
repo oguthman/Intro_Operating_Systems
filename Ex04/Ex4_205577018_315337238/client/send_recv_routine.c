@@ -137,7 +137,7 @@ DWORD WINAPI SendRecvRoutine_SendRoutine(LPVOID lpParam)
 		Socket_FreeParamsArray(p_params->params, p_params->params_count);
 	}
 
-	return 0; //TODO: temp - check if exit protocol needed
+	return 0;
 }
 
 DWORD WINAPI SendRecvRoutine_ReceiveRoutine(LPVOID lpParam)
@@ -161,14 +161,6 @@ DWORD WINAPI SendRecvRoutine_ReceiveRoutine(LPVOID lpParam)
 			Socket_FreeParamsArray(message_params.params, message_params.params_count);
 			*g_killing_me_softly_flag = true;
 
-			// breaking the loop
-			if (result == transfer_disconnected)
-				printf("server disconnected\n");	// TOOD: Remove
-			else if (result == transfer_timeout)
-				printf("client socket timeout\n");		// TOOD: Remove
-			else 
-				printf("client socket failed\n");	// TOOD: Remove
-
 			return result;
 		}
 
@@ -176,12 +168,10 @@ DWORD WINAPI SendRecvRoutine_ReceiveRoutine(LPVOID lpParam)
 		if (gs_receiving_vars.callback != NULL)
 			gs_receiving_vars.callback(message_params);
 
-		// TODO: not happy path
-
 		Socket_FreeParamsArray(message_params.params, message_params.params_count);
 	}
 
-	return 0;
+	return transfer_succeeded;
 }
 
 bool SendRecvRoutine_SetReceiveEvent(bool set, uint32_t timeout)
@@ -207,7 +197,7 @@ void SendRecvRoutine_Teardown()
 		Socket_FreeParamsArray(p_params->params, p_params->params_count);
 	}
 
-	// close all handlers
+	// close all events
 	CloseHandle(gs_sending_vars.send_event_handle);
 	CloseHandle(gs_receiving_vars.receive_event_handle);
 	Socket_TearDown(*g_client_socket, false);

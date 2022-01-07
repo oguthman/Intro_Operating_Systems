@@ -40,7 +40,7 @@ ALL RIGHTS RESERVED
 		}																					\
 	} while (0);
 
-#define THREAD_ASSERT(cond, msg, ...)														\
+#define GAME_ASSERT(cond, msg, ...)														\
 	do {																					\
 		if (!(cond)) {																		\
 			printf("Thread Assertion failed at file %s line %d: \n", __FILE__, __LINE__);	\
@@ -56,10 +56,7 @@ ALL RIGHTS RESERVED
 			File_Printf(file, msg, __VA_ARGS__);											\
 	} while (0);
 
-
 #define SERVER_IP								"127.0.0.1"
-#define NUMBER_OF_ACTIVE_CONNECTIONS			2
-#define CLIENT_NON_USER_TIMEOUT					(15000)			// 15sec
 
 /************************************
 *       types                       *
@@ -89,32 +86,26 @@ static bool open_log_file(File * file, char* username);
 static bool find_available_thread(HANDLE* handles, int8_t* thread_index);
 static void decide_first_player(HANDLE* handles, char* player_name);
 static void close_all(HANDLE* handles, HANDLE* server_handles, SOCKET server_socket, s_client_data* client_data);
-static void print_socket_data(SOCKET socker_origid, char* print_origid, char* string);
+static void print_socket_data(SOCKET socker_originator, char* print_originator, char* string);
 
 /************************************
 *       API implementation          *
 ************************************/
-// TODO: EXIT COMMAND TO EXIT SERVER						VV
-// TODO: MAKE SURE TO CHECK EVERY CREATE NEW THREAD
-// TODO: GRACEFULL SHUTDOWN
-// TODO: CHECK FREE IN GENERAL(SOCKETS AND ALLOCATIONS)
-// TODO: ASSERTS
-// TODO: LOG
-// TODO: ADD SEND/RECV BUFFER TO LOG
+// TODO: CHECK LAST TODOs
 
 /// Description: initiate values, initiate server socket, create server threads. 
 /// Parameters: 
 ///		[in] argc - number of arguments. 
 ///		[in] argv - arguments list. 
-/// Return: true if succeeded or false otherwise.
+/// Return: 0 if succeeded or 1 otherwise.
 int main(int argc, char* argv[])
 {
+	int exit_code = 0;
 	parse_arguments(argc, argv);
 	server_init();
-	game_init(&g_game_data);
 
 	SOCKET server_socket = Socket_Init(socket_server, SERVER_IP, g_port);
-	ASSERT(server_socket != INVALID_SOCKET, "Error: server can't open socket\n");		//TODO: exit?
+	ASSERT(server_socket != INVALID_SOCKET, "Error: server can't open socket\n");
 
 	HANDLE server_handles[2];
 	server_handles[0] = create_new_thread(server_listen_routine, &server_socket);
@@ -123,20 +114,17 @@ int main(int argc, char* argv[])
 	if (server_handles[0] == NULL || server_handles[1] == NULL)
 	{
 		printf("Error: failed creating a thread\n");
-		close_all(g_handles, server_handles, server_socket, g_client_data_array);
-		return 1;
+		exit_code = 1;
 	}
-
-	if (!wait_for_threads(server_handles, 2, false, INFINITE, true))
+	else if (!wait_for_threads(server_handles, 2, false, INFINITE, true))
 	{
 		printf("Error: faild waiting on threads\n");
+		exit_code = 1;
 	}
-	//TODO: GRACEFULL SHUTDOWN
 
 	// free all allocation & close handles (Threads, Mutex, Semaphores)
 	close_all(g_handles, server_handles, server_socket, g_client_data_array);
-
-	return 0;
+	return exit_code;
 }
 
 /************************************
@@ -169,6 +157,8 @@ static void server_init()
 
 	g_game_data.player_turn = 1;
 	g_game_data.game_counter = 0;
+	
+	game_init(&g_game_data);
 }
 
 /// Description: server listens to accept new clients and creates new thread for each client.  
@@ -183,7 +173,7 @@ static DWORD WINAPI server_listen_routine(LPVOID lpParam)
 	{
 		// accept new clients (wait for clients to connect)
 		SOCKET accept_socket = accept(server_socket, NULL, NULL);
-		THREAD_ASSERT(accept_socket != INVALID_SOCKET, "Error: server can't open socket for client\n");		//TODO: exit?
+		GAME_ASSERT(accept_socket != INVALID_SOCKET, "Error: server can't open socket for client\n");
 		// TODO: remove
 		printf("Client has connected\n");
 
@@ -197,14 +187,12 @@ static DWORD WINAPI server_listen_routine(LPVOID lpParam)
 			break;
 		}
 
+		// send access denied to client
 		if (thread_index == -1)
 		{
-			// TODO: remove
-			printf("Rejecting client\n");
-			// send access denied to client
+			// reject client
 			s_message_params message_params = { .message_type = MESSAGE_TYPE_SERVER_DENIED, .params_count = 0 };
 			Socket_Send(accept_socket, message_params);
-			// reject client
 			Socket_TearDown(accept_socket, true);
 			continue;
 		}
@@ -213,8 +201,6 @@ static DWORD WINAPI server_listen_routine(LPVOID lpParam)
 		s_message_params received_message_params;
 		if (check_received_message(accept_socket, MESSAGE_TYPE_CLIENT_REQUEST, &received_message_params, CLIENT_NON_USER_TIMEOUT) != transfer_succeeded)
 		{
-			// TODO: gracefull exit
-			// reject client
 			Socket_TearDown(accept_socket, true);
 			Socket_FreeParamsArray(received_message_params.params, received_message_params.params_count);
 			continue;
@@ -246,7 +232,7 @@ static DWORD WINAPI server_listen_routine(LPVOID lpParam)
 		{
 			LOG_PRINTF(g_client_data_array[thread_index].client_thread_file, "Error: failed creating a thread\n");
 			Socket_FreeParamsArray(received_message_params.params, received_message_params.params_count);
-			return 1;
+			break;
 		}
 
 		// free params
@@ -289,14 +275,13 @@ static DWORD WINAPI client_thread_routine(LPVOID lpParam)
 		// wait for CLIENT_VERSUS
 		if (check_received_message(client_data->client_socket, MESSAGE_TYPE_CLIENT_VERSUS, &received_message_params, INFINITE) != transfer_succeeded)
 		{
-			printf("Error: wait for CLIENT_VERSUS, receive (%d)\n", received_message_params.message_type); //TODO: Remove
-			// client chose to disconnect from server
+			// client disconnect from server
 			LOG_PRINTF(client_data->client_thread_file, "Player disconnected. Exiting.\n");
 			break;
 		}
 
 		// wait for another player to connect
-		if (!game_barrier(&g_start_game_barrier_counter))
+		if (!game_barrier(&g_start_game_barrier_counter, &client_data->client_thread_file))
 		{
 			// send SERVER_NO_OPPONENTS
 			message_params.message_type = MESSAGE_TYPE_SERVER_NO_OPPONENTS;
@@ -323,13 +308,6 @@ static DWORD WINAPI client_thread_routine(LPVOID lpParam)
 
 			g_game_data.player_disconnected = true;
 			g_game_data.game_is_on = false;
-
-			if (game_routine_result == game_client_timeout)
-			{
-				printf("Error: wait for client move timeout\n"); // TODO: REMOVE
-				Socket_FreeParamsArray(received_message_params.params, received_message_params.params_count);
-				continue;
-			}
 			
 			// game unexpectedly stopped
 			printf(game_routine_result == game_failed ? "Error: Game unexpectedly stopped\n" : "Error: Client has disconnected\n"); // TODO: REMOVE
@@ -354,12 +332,12 @@ static bool open_log_file(File* file, char* username)
 {
 	int filename_length = snprintf(NULL, 0, "Thread_log_%s.txt\n", username);
 	char* file_name = malloc((filename_length) * sizeof(char));
-	THREAD_ASSERT(file_name != NULL, "Error: failed allocating buffer for message\n")
+	GAME_ASSERT(file_name != NULL, "Error: failed allocating buffer for message\n")
 
 	snprintf(file_name, filename_length, "Thread_log_%s.txt\n", username);
 	*file = File_Open(file_name, "w");
 	free(file_name);
-	THREAD_ASSERT(*file != NULL, "Error: failed opening output file\n");
+	GAME_ASSERT(*file != NULL, "Error: failed opening output file\n");
 
 	return true;
 }
@@ -448,12 +426,18 @@ static void close_all(HANDLE* handles, HANDLE* server_handles, SOCKET server_soc
 	Socket_TearDown(server_socket, false);
 }
 
-static void print_socket_data(SOCKET socker_origid, char* print_origid, char* string) 
+/// Description: handle socket data for printing.
+/// Parameters: 
+///		[in] socker_originator - the send/recv socket.
+///		[in] print_originator - send/receive string.
+///		[in] string - the data from socket to print.
+/// Return: none.
+static void print_socket_data(SOCKET socker_originator, char* print_originator, char* string)
 {
 	for (int i = 0; i < NUMBER_OF_ACTIVE_CONNECTIONS; i++)
-		if (g_client_data_array[i].client_socket == socker_origid)
+		if (g_client_data_array[i].client_socket == socker_originator)
 		{
 			if (g_client_data_array[i].client_thread_file != NULL)
-				File_Printf(g_client_data_array[i].client_thread_file, "%s from server-%s\n", print_origid, string);
+				File_Printf(g_client_data_array[i].client_thread_file, "%s client-%s\n", print_originator, string);
 		}
 }

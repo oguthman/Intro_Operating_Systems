@@ -26,15 +26,6 @@ ALL RIGHTS RESERVED
 #define THREAD_TIMEOUT	INFINITE
 #define TERMINATE_ALL_THREADS_EXITCODE 0x55
 
-#define ASSERT(cond, msg, ...)														\
-	do {																					\
-		if (!(cond)) {																		\
-			printf("Thread Assertion failed at file %s line %d: \n", __FILE__, __LINE__);	\
-			printf(msg, __VA_ARGS__);														\
-			return false;																		\
-		}																					\
-	} while (0);
-
 /************************************
 *       types                       *
 ************************************/

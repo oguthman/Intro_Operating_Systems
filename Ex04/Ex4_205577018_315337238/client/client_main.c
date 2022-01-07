@@ -34,20 +34,20 @@ ALL RIGHTS RESERVED
 /************************************
 *      definitions                 *
 ************************************/
-#define ASSERT(cond, msg, ...)																\
-	do {																					\
-		if (!(cond)) {																		\
-			printf("Assertion failed at file %s line %d: \n", __FILE__, __LINE__);			\
-			printf(msg, __VA_ARGS__);														\
-			exit (1);																		\
-		}																					\
-	} while (0);
-
 #define LOG_PRINTF(msg, ...)																\
 	do {																					\
 		printf(msg, __VA_ARGS__);															\
 		if (g_client_log_file != NULL)														\
 			File_Printf(g_client_log_file, msg, __VA_ARGS__);								\
+	} while (0);
+
+#define ASSERT(cond, msg, ...)																\
+	do {																					\
+		if (!(cond)) {																		\
+			printf("Assertion failed at file %s line %d: \n", __FILE__, __LINE__);			\
+			LOG_PRINTF(msg, __VA_ARGS__);													\
+			exit (1);																		\
+		}																					\
 	} while (0);
 
 /************************************
@@ -83,11 +83,6 @@ static void print_socket_data(SOCKET socker_originator, char* print_originator, 
 /************************************
 *       API implementation          *
 ************************************/
-// TODO: CHECK FREE IN GENERAL(SOCKETS AND ALLOCATIONS)
-// TODO: ASSERTS
-// TODO: ADD SEND/RECV BUFFER TO LOG
-// TODO: VERIFY PRINTS TO LOG
-
 /// Description: initiate values and modules, connect to server, create client threads. 
 /// Parameters: 
 ///		[in] argc - number of arguments. 
@@ -106,13 +101,13 @@ int main(int argc, char* argv[])
 	HANDLE thread_handels[3] = { NULL, NULL, NULL };
 
 	// init client send receive module
-	ASSERT(SendRecvRoutine_Init(&g_client_socket, &g_soft_exit_flag), "Error: failed initiate client_send_recv module\n");
+	ASSERT(SendRecvRoutine_Init(&g_client_socket, &g_soft_exit_flag), "Error: failed initiate SendRecvRoutine module\n");
 	SendRecvRoutine_BindCallback(data_received_handle);
-	SendRecvRoutine_SetReceiveEvent(true, 15 * 1000);
-	//
+	ASSERT(SendRecvRoutine_SetReceiveEvent(true, 15 * 1000), "Error: failed to set receive event\n");
+	
 	ASSERT(ClientUI_Init(&g_soft_exit_flag, &g_connection_state, (s_server_data*)&gs_inputs, &g_client_log_file), "Error: failed initiate clientUI module\n");
 	ClientUI_BindSendCallback(data_send_handle);
-	//
+	
 	Socket_BindSocketPrintCallback(print_socket_data);
 
 	// run loop
@@ -135,7 +130,12 @@ int main(int argc, char* argv[])
 		// send client name to the server
 		s_message_params message_params = { .message_type = MESSAGE_TYPE_CLIENT_REQUEST, .params_count = 1 };
 		message_params.params[0] = gs_inputs.username;
-		SendRecvRoutine_AddTransaction(message_params);
+		if (!SendRecvRoutine_AddTransaction(message_params))
+		{
+			LOG_PRINTF("Error: failed adding new transaction to the send routine\n");
+			exit_code = 1;
+			break;
+		}
 
 		// initiate send and receive threads
 		thread_handels[0] = create_new_thread(SendRecvRoutine_SendRoutine, NULL);
@@ -168,9 +168,12 @@ int main(int argc, char* argv[])
 
 		// one thread finished action, close program (softly) 
 		g_soft_exit_flag = true;
-		wait_for_threads(thread_handels, 3, false, 5000, true);
-
-		// check reconnection (timeout)		// TODO: Check if reconnect after disconnection
+		wait_for_threads(thread_handels, 3, false, 5000, true);		// not checking the return value, exit anyway
+		break;
+	}
+	
+	if (thread_handels[1] != NULL)
+	{
 		// check receive thread exit code to determine if disconnected
 		DWORD thread_exitcode;
 		if (!GetExitCodeThread(thread_handels[1], &thread_exitcode))
@@ -178,30 +181,12 @@ int main(int argc, char* argv[])
 			LOG_PRINTF("Error: GetExitCodeThread return error\n");
 			exit_code = 1;
 		}
-		if (thread_exitcode == transfer_timeout)
+
+		if (thread_exitcode == transfer_disconnected || thread_exitcode == transfer_timeout)
 		{
-			LOG_PRINTF("Failed connecting to server on %s:%d.\n", gs_inputs.server_ip, gs_inputs.server_port);
-			Socket_TearDown(g_client_socket, true);
-			handle_connection_menu();
-			continue;
+			LOG_PRINTF("Server disconnected. Exiting.\n");
+			exit_code = 1;
 		}
-
-		break;
-	}
-	
-	// check receive thread exit code to determine if disconnected
-	DWORD exitcode;
-	if (!GetExitCodeThread(thread_handels[1], &exitcode))
-	{
-		LOG_PRINTF("Error: GetExitCodeThread return error\n");
-		exit_code = 1;
-	}			
-
-
-	if (exitcode == transfer_disconnected)
-	{
-		LOG_PRINTF("Server disconnected. Exiting.\n");
-		exit_code = 1;
 	}
 
 	// close all handles
@@ -210,8 +195,7 @@ int main(int argc, char* argv[])
 
 	// on exit
 	SendRecvRoutine_Teardown();
-
-	// TODO: return value
+	return exit_code;
 }
 
 /************************************
@@ -224,17 +208,6 @@ int main(int argc, char* argv[])
 /// Return: none.
 static void parse_arguments(int argc, char* argv[])
 {
-	if (argc == 1)
-	{
-		static char username[20] = "";
-		sprintf(username, "ofir_%d", rand());
-		// parse arguments
-		gs_inputs.server_ip = "127.0.0.1";
-		gs_inputs.server_port = 8888;
-		gs_inputs.username = username;
-		return;
-	}
-	
 	// check if there are enough arguments
 	ASSERT(argc == 4, "Error: not enough arguments.\n");
 
@@ -290,12 +263,16 @@ static void data_received_handle(s_message_params params)
 {
 	if (!ClientUI_AddMessage(params))
 	{
-		LOG_PRINTF("Error: failed add message to UI. Exiting.\n");
+		LOG_PRINTF("Error: failed adding message to UI. Exiting.\n");
 		g_soft_exit_flag = true;
 	}
 	//
 	// reset the receive event until timeout update
-	SendRecvRoutine_SetReceiveEvent(false, 15 * 1000);
+	if (!SendRecvRoutine_SetReceiveEvent(false, 15 * 1000))
+	{
+		LOG_PRINTF("Error: failed to set receive event. Exiting.\n");
+		g_soft_exit_flag = true;
+	}
 }
 
 /// Description: handle data sending to server.
@@ -315,7 +292,11 @@ static void data_send_handle(s_message_params* params, uint32_t timeout)
 	}
 	//
 	// set the receive event with the updated timeout value
-	SendRecvRoutine_SetReceiveEvent(true, timeout);
+	if (!SendRecvRoutine_SetReceiveEvent(true, timeout))
+	{
+		LOG_PRINTF("Error: failed to set receive event. Exiting.\n");
+		g_soft_exit_flag = true;
+	}
 }
 
 /// Description: handle socket data for printing.
@@ -329,6 +310,6 @@ static void print_socket_data(SOCKET socker_originator, char* print_originator, 
 	if (g_client_socket == socker_originator)
 	{
 		if (g_client_log_file != NULL)
-			File_Printf(g_client_log_file, "%s from server-%s\n", print_originator, string);
+			File_Printf(g_client_log_file, "%s server-%s\n", print_originator, string);
 	}
 }

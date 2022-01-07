@@ -81,13 +81,6 @@ e_transfer_result Socket_Send(SOCKET main_socket, s_message_params message_param
 /// Return: none.
 void Socket_BindSocketPrintCallback(printing_callback callback);
 
-/// Description: build a message string from message params.  
-/// Parameters: 
-///		[in] message_params - the params to build the string. 
-///		[in] buffer - pointer to the buffer string. 
-/// Return: none.
-bool Socket_BuildBufferFromMessageParams(s_message_params message_params, char** buffer);
-
 /// Description: handle sent message. 
 /// Parameters: 
 ///		[in] main_socket - socket handle. 

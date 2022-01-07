@@ -31,14 +31,16 @@ ALL RIGHTS RESERVED
 /************************************
 *      definitions                 *
 ************************************/
-#define USERNAME_MAX_LENGTH		20
+#define USERNAME_MAX_LENGTH						20
+#define NUMBER_OF_ACTIVE_CONNECTIONS			2
+#define CLIENT_NON_USER_TIMEOUT					15000		// 15sec
 
 /************************************
 *       types                       *
 ************************************/
 typedef struct {
 	bool game_is_on;
-	uint32_t game_counter;
+	uint64_t game_counter;
 	char first_player_name[USERNAME_MAX_LENGTH + 1];
 	char second_player_name[USERNAME_MAX_LENGTH + 1];
 	int8_t player_turn;
@@ -75,8 +77,9 @@ void game_init(s_game_data* game_data);
 /// Description: wait on number of threads to complete an action.
 /// Parameters: 
 ///		[in] counter - counts how many threads finished the action. 
+///		[in] file - the log file. 
 /// Return: true if succeeded and false otherwise.
-bool game_barrier(uint8_t* counter);
+bool game_barrier(uint8_t* counter, File* file);
 
 /// Description: check if received the expected message.
 /// Parameters: 
